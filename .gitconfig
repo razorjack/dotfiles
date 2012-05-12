@@ -1,0 +1,46 @@
+[user]
+	name = Jacek Galanciak
+	email = jacek.galanciak@gmail.com
+[mergetool]
+	keepBackup = true
+[color]
+	branch = auto
+	diff = auto
+	interactive = auto
+  status = auto
+  ui = true
+[help]
+  autocorrect = 1
+[status]
+  submodule = 1
+[push]
+  # Only push branches that have been set up to track a remote branch.
+	default = current
+[apply]
+  whitespace = warn
+
+[alias]
+  co = checkout
+  # Alternate log display from Scott Chacon
+  lol = log --pretty=oneline --abbrev-commit --graph --decorate
+  unstage = reset HEAD
+  staged = diff --cached
+  unstaged = diff
+  current-branch = !git symbolic-ref -q HEAD | sed -e 's|^refs/heads/||'
+  track = checkout -t
+  st = status
+  ci = commit
+  di = diff
+  dc = diff --cached
+  amend = commit --amend
+  aa = add --all
+  r = !git l -20
+  ra = !git r --all
+  l = "!source ~/.githelpers && pretty_git_log"
+  fa = fetch --all
+  pullff = pull --ff-only
+  ff = merge --ff-only
+[merge]
+  tool = vimdiff
+[core]
+	excludesfile = /Users/razorjack/.gitignore_global
