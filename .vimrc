@@ -21,7 +21,7 @@ set smartcase                   " ... unless they contain at least one capital l
 
 "" Misc
 set number                      " show line numbers
-set wildignore+=*.o,*.obj,.git,*.rbc,*.class,.svn,vendor/gems/*,public/system/**,public/uploads/**,public/assets/**
+set wildignore+=*.o,*.obj,.git,*.rbc,*.class,.svn,vendor/gems/*,tmp/**,public/system/**,public/uploads/**,public/assets/**
 set ls=2                        " always display filename
 
 let g:ctrlp_custom_ignore = '\.git$\|\.hg$\|\.svn$\|public/system'
