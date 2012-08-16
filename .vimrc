@@ -38,7 +38,7 @@ vmap <C-Down> xp`[V`]
 set backupdir=~/.vim/backup
 set directory=~/.vim/backup
 
-colorscheme grb256
+colorscheme codeschool
 
 " Cursor type setup
 let &t_SI = "\<Esc>]50;CursorShape=1\x7"    " Insert mode
@@ -122,3 +122,4 @@ endfunction
 
 
 " big thanks to @garybernhardt, @mislav for their inspirational .vimrc
+
