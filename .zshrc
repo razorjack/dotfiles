@@ -14,7 +14,7 @@ auto_bundle_exec
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=*' 'l:|=* r:|=*'
 
 
-export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/usr/local/sbin
+export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/usr/local/sbin:$PATH
 [[ -s "/Users/razorjack/.rvm/scripts/rvm" ]] && source "/Users/razorjack/.rvm/scripts/rvm"
 export ACK_COLOR_MATCH='red'
 
