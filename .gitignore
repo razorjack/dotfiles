@@ -32,3 +32,11 @@ Pictures/
 Projects/
 Public/
 Sites/
+
+/.cocoapods/
+
+/.netrc
+
+/.vagrant.d/
+
+*.pyc
