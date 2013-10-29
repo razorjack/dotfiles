@@ -44,3 +44,6 @@
   tool = vimdiff
 [core]
 	excludesfile = /Users/razorjack/.gitignore_global
+
+[diff "localizablestrings"]
+	textconv = "iconv -f utf-16 -t utf-8"
