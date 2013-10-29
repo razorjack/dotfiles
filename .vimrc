@@ -123,3 +123,6 @@ endfunction
 
 " big thanks to @garybernhardt, @mislav for their inspirational .vimrc
 
+" C/C++/Objective-C
+
+let g:clang_library_path = '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib'
