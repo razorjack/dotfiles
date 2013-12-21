@@ -9,3 +9,4 @@
 --ignore-dir=tmp
 --ignore-dir=public/system
 --ignore-dir=coverage
+--ignore-dir=log
