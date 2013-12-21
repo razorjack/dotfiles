@@ -13,13 +13,8 @@ auto_bundle_exec
 # enable case insensitive completions
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=*' 'l:|=* r:|=*'
 
-
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/usr/local/sbin:$PATH
-[[ -s "/Users/razorjack/.rvm/scripts/rvm" ]] && source "/Users/razorjack/.rvm/scripts/rvm"
 export ACK_COLOR_MATCH='red'
-
-
-PATH=$PATH:$HOME/.rvm/bin # Add RVM to PATH for scripting
 
 # moar colors
 alias grep="grep --color"
@@ -39,3 +34,13 @@ setopt hist_ignore_space
 setopt hist_verify
 setopt inc_append_history
 setopt share_history # share command history data
+
+### Added by the Heroku Toolbelt
+export PATH="/usr/local/heroku/bin:$PATH"
+
+OCLINT_HOME=/opt/oclint
+export PATH=$OCLINT_HOME/bin:$PATH
+
+source ~/.profile
+
+PATH=$PATH:$HOME/.rvm/bin # Add RVM to PATH for scripting
