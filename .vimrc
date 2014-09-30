@@ -14,6 +14,7 @@ Plugin 'rstacruz/sparkup', {'rtp': 'vim/'} " super fast HTML tags
 Plugin 'Valloric/YouCompleteMe'
 Plugin 'bling/vim-airline'
 Plugin 'SirVer/ultisnips'
+Plugin 'honza/vim-snippets'
 Plugin 'tpope/vim-surround'
 Plugin 'wincent/command-t'
 Plugin 'scrooloose/syntastic'
@@ -178,3 +179,7 @@ let g:ackprg = 'ag --nogroup --nocolor --column'
 set fillchars+=vert:\ 
 
 let g:ycm_collect_identifiers_from_tags_files = 1 " use ctags
+
+let g:UltiSnipsExpandTrigger="<c-j>"
+let g:UltiSnipsJumpForwardTrigger="<c-j>"
+let g:UltiSnipsJumpBackwardTrigger="<c-k>"
