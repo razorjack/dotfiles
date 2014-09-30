@@ -40,3 +40,4 @@ Sites/
 /.vagrant.d/
 
 *.pyc
+.idea/
