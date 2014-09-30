@@ -1,3 +1,5 @@
+IRB.conf[:BACK_TRACE_LIMIT] = 100
+
 begin
   # load wirble
   require 'rubygems'
