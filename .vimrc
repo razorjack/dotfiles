@@ -127,5 +127,6 @@ endfunction
 
 let g:clang_library_path = '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib'
 let g:syntastic_ruby_checkers = ['mri', 'ruby-lint']
+let g:syntastic_c_checkers = ['gcc', 'oclint']
 
 let g:ackprg = 'ag --nogroup --nocolor --column'
