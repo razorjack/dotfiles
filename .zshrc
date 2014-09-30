@@ -44,3 +44,5 @@ export PATH=$OCLINT_HOME/bin:$PATH
 source ~/.profile
 
 PATH=$PATH:$HOME/.rvm/bin # Add RVM to PATH for scripting
+
+export VAGRANT_DEFAULT_PROVIDER=parallels
