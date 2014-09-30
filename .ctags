@@ -1,0 +1,9 @@
+--recurse=yes
+--tag-relative=yes
+--exclude=.git
+--exclude=log
+--exclude=public/system
+--exclude=public/assets
+--exclude=tmp
+--fields=+l
+
