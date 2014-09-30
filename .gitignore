@@ -41,3 +41,4 @@ Sites/
 
 *.pyc
 .idea/
+.vim/bundle
