@@ -183,3 +183,5 @@ let g:ycm_collect_identifiers_from_tags_files = 1 " use ctags
 let g:UltiSnipsExpandTrigger="<c-j>"
 let g:UltiSnipsJumpForwardTrigger="<c-j>"
 let g:UltiSnipsJumpBackwardTrigger="<c-k>"
+
+let g:vim_markdown_folding_disabled=1
