@@ -30,6 +30,7 @@ Plugin 'mileszs/ack.vim'
 Plugin 'jelera/vim-javascript-syntax'
 Plugin 'Raimondi/delimitMate'
 Plugin 'marijnh/tern_for_vim'
+Plugin 'kchmck/vim-coffee-script'
 
 
 " All of your Plugins must be added before the following line
