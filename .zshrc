@@ -46,3 +46,19 @@ source ~/.profile
 PATH=$HOME/.rvm/bin:$PATH # Add RVM to PATH for scripting
 
 export VAGRANT_DEFAULT_PROVIDER=parallels
+source `brew --prefix`/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+source `brew --prefix`/etc/profile.d/z.sh
+fpath=(/usr/local/share/zsh-completions $fpath)
+
+# Taken from https://github.com/bkzl/dotfiles/blob/master/zshrc
+fancy-ctrl-z () {
+  if [[ $#BUFFER -eq 0 ]]; then
+    fg
+    zle redisplay
+  else
+    zle push-input
+    zle clear-screen
+  fi
+}
+zle -N fancy-ctrl-z
+bindkey '^Z' fancy-ctrl-z
