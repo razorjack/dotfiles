@@ -10,12 +10,22 @@ call vundle#begin()
 " let Vundle manage Vundle, required
 Plugin 'gmarik/Vundle.vim'
 Plugin 'tpope/vim-fugitive' " Git
+Plugin 'AndrewRadev/splitjoin.vim' " switch between single-line and multi-line statements
 Plugin 'rstacruz/sparkup', {'rtp': 'vim/'} " super fast HTML tags
 Plugin 'Valloric/YouCompleteMe'
+Plugin 'airblade/vim-gitgutter'
+Plugin 'gorkunov/smartpairs.vim'
+Plugin 'mbbill/undotree'
+Plugin 'sheerun/vim-polyglot'
+Plugin 'skalnik/vim-vroom'
+Plugin 'tpope/vim-bundler'
+Plugin 'tpope/vim-dispatch'
 Plugin 'bling/vim-airline'
 Plugin 'SirVer/ultisnips'
 Plugin 'honza/vim-snippets'
 Plugin 'tpope/vim-surround'
+Plugin 'tpope/vim-vinegar'
+Plugin 'vim-scripts/gitignore'
 Plugin 'wincent/command-t'
 Plugin 'scrooloose/syntastic'
 Plugin 'altercation/vim-colors-solarized'
@@ -26,12 +36,14 @@ Plugin 'godlygeek/tabular'
 Plugin 'plasticboy/vim-markdown'
 Plugin 'vim-ruby/vim-ruby'
 Plugin 'tpope/vim-rails'
-Plugin 'mileszs/ack.vim'
+Plugin 'tpope/vim-rake'
+Plugin 'rking/ag.vim'
 Plugin 'jelera/vim-javascript-syntax'
 Plugin 'Raimondi/delimitMate'
 Plugin 'marijnh/tern_for_vim'
 Plugin 'kchmck/vim-coffee-script'
 Plugin 'mattn/emmet-vim'
+Plugin 'nanotech/jellybeans.vim'
 
 
 " All of your Plugins must be added before the following line
@@ -176,8 +188,6 @@ let g:syntastic_ruby_checkers = ['mri', 'ruby-lint']
 let g:syntastic_c_checkers = ['gcc', 'oclint']
 let g:syntastic_javascript_checkers = ['jshint']
 
-let g:ackprg = 'ag --nogroup --nocolor --column'
-
 set fillchars+=vert:\ 
 
 let g:ycm_collect_identifiers_from_tags_files = 1 " use ctags
@@ -187,3 +197,20 @@ let g:UltiSnipsJumpForwardTrigger="<c-j>"
 let g:UltiSnipsJumpBackwardTrigger="<c-k>"
 
 let g:vim_markdown_folding_disabled=1
+
+au VimResized * :wincmd = " Resize panes when terminal resizes
+au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g`\"" | endif " Split panes proportionally
+
+set ttyfast
+set lazyredraw
+set noesckeys
+
+let g:ctrlp_reuse_window = 'netrw\|help\|quickfix'
+let g:ctrlp_working_path_mode = 2
+let g:ctrlp_custom_ignore = '\v[\/](\.(git|hg|svn))$'
+let g:ctrlp_user_command = [
+      \ '.git',
+      \ 'cd %s && git ls-files . -co --exclude-standard',
+      \ 'find %s -type f'
+      \ ]
+let g:ctrlp_use_caching = 0
