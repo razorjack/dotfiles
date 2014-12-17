@@ -214,3 +214,8 @@ let g:ctrlp_user_command = [
       \ 'find %s -type f'
       \ ]
 let g:ctrlp_use_caching = 0
+:highlight SyntasticErrorSign ctermbg=234
+:highlight SyntasticWarningSign ctermbg=234
+:highlight SyntasticStyleErrorSign ctermbg=234
+:highlight SyntasticStyleWarningSign ctermbg=234
+
