@@ -4,6 +4,7 @@
 --exclude=log
 --exclude=public/system
 --exclude=public/assets
+--exclude=coverage
 --exclude=tmp
 --fields=+l
 
