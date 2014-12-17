@@ -235,6 +235,14 @@ function! GoodMatch(items, str, limit, mmode, ispath, crfile, regex)
 endfunction
 let g:ctrlp_use_caching = 0
 map <Leader>t :CtrlP<CR>
+
+:highlight SignColumn ctermbg=NONE
+:highlight SpellBad ctermbg=234
+:highlight SpellCap ctermbg=234
+:highlight SpellRare ctermbg=234
+:highlight SpellLocal ctermbg=234
+:highlight CursorLine ctermbg=234
+
 :highlight SyntasticErrorSign ctermbg=234
 :highlight SyntasticWarningSign ctermbg=234
 :highlight SyntasticStyleErrorSign ctermbg=234
