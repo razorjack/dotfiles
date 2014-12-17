@@ -19,7 +19,7 @@ Plugin 'mbbill/undotree'
 Plugin 'sheerun/vim-polyglot'
 Plugin 'skalnik/vim-vroom'
 Plugin 'tpope/vim-bundler'
-Plugin 'tpope/vim-dispatch'
+Plugin 'benmills/vimux'
 Plugin 'bling/vim-airline'
 Plugin 'SirVer/ultisnips'
 Plugin 'honza/vim-snippets'
@@ -43,7 +43,8 @@ Plugin 'marijnh/tern_for_vim'
 Plugin 'kchmck/vim-coffee-script'
 Plugin 'mattn/emmet-vim'
 Plugin 'nanotech/jellybeans.vim'
-
+Plugin 'kien/ctrlp.vim'
+Plugin 'christoomey/vim-tmux-navigator'
 
 " All of your Plugins must be added before the following line
 call vundle#end()            " required
@@ -116,16 +117,24 @@ let g:CommandTMaxHeight=12
 
 " Couldn't find any electroshocking API docs
 " using echo instead
-map <Left> :echo "ugh!"<cr>
-map <Right> :echo "ugh!"<cr>
-map <Up> :echo "ugh!"<cr>
-map <Down> :echo "ugh!"<cr>
-
-" easier navigation between split windows
+" map <Left> :echo "ugh!"<cr>
+" map <Right> :echo "ugh!"<cr>
+" map <Up> :echo "ugh!"<cr>
+" map <Down> :echo "ugh!"<cr>
 nnoremap <c-j> <c-w>j
 nnoremap <c-k> <c-w>k
 nnoremap <c-h> <c-w>h
 nnoremap <c-l> <c-w>l
+
+nnoremap <left> <c-w>5<
+nnoremap <down> <c-w>5-
+nnoremap <up> <c-w>5+
+nnoremap <right> <c-w>5>
+" easier navigation between split windows
+" nnoremap <c-j> <c-w>j
+" nnoremap <c-k> <c-w>k
+" nnoremap <c-h> <c-w>h
+" nnoremap <c-l> <c-w>l
 
 " Return unhighlights current search
 nnoremap <CR> :nohlsearch<cr>
@@ -202,8 +211,6 @@ au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g
 
 set ttyfast
 set lazyredraw
-set noesckeys
-
 
 let g:path_to_matcher = "/usr/local/bin/matcher"
 
@@ -248,3 +255,4 @@ map <Leader>t :CtrlP<CR>
 :highlight SyntasticStyleErrorSign ctermbg=234
 :highlight SyntasticStyleWarningSign ctermbg=234
 
+let g:vroom_use_vimux = 1
