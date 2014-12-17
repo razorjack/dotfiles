@@ -3,7 +3,8 @@ typeset -U fpath
 setopt promptsubst
 autoload -U promptinit
 promptinit
-prompt grb
+prompt pure
+PURE_GIT_PULL=0
 
 autoload -U compinit
 compinit
