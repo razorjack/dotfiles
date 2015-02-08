@@ -20,7 +20,6 @@ Plugin 'sheerun/vim-polyglot'
 Plugin 'skalnik/vim-vroom'
 Plugin 'tpope/vim-bundler'
 Plugin 'benmills/vimux'
-Plugin 'bling/vim-airline'
 Plugin 'SirVer/ultisnips'
 Plugin 'honza/vim-snippets'
 Plugin 'tpope/vim-surround'
@@ -256,3 +255,18 @@ map <Leader>t :CtrlP<CR>
 :highlight SyntasticStyleWarningSign ctermbg=234
 
 let g:vroom_use_vimux = 1
+
+set statusline=
+set statusline +=%4*\ %<%f%*            "full path
+set statusline +=%3*\ %y%*                "file type
+set statusline +=%5*\ %{fugitive#statusline()}
+set statusline +=%2*%m%*                "modified flag
+set statusline +=%1*%=%5l%*             "current line
+set statusline +=%2*/%L%*               "total lines
+set statusline +=%1*%4v\ %*             "virtual column number
+
+hi User1 ctermfg=2 ctermbg=234
+hi User2 ctermfg=2 ctermbg=234
+hi User3 ctermfg=4 ctermbg=234
+hi User4 ctermfg=2 ctermbg=234
+hi User5 ctermfg=5 ctermbg=234
