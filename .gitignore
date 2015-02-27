@@ -40,3 +40,4 @@ Sites/
 !.zsh
 !.vim
 !.agignore
+!.zshenv
