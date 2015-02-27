@@ -45,8 +45,6 @@ export PATH=$OCLINT_HOME/bin:$PATH
 
 source ~/.profile
 
-PATH=$HOME/.rvm/bin:$PATH # Add RVM to PATH for scripting
-
 export VAGRANT_DEFAULT_PROVIDER=parallels
 source `brew --prefix`/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source `brew --prefix`/etc/profile.d/z.sh
