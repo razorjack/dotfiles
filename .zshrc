@@ -37,8 +37,6 @@ setopt hist_verify
 setopt inc_append_history
 setopt share_history # share command history data
 
-### Added by the Heroku Toolbelt
-export PATH="/usr/local/heroku/bin:$PATH"
 
 OCLINT_HOME=/opt/oclint
 export PATH=$OCLINT_HOME/bin:$PATH
