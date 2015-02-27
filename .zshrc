@@ -60,3 +60,7 @@ fancy-ctrl-z () {
 }
 zle -N fancy-ctrl-z
 bindkey '^Z' fancy-ctrl-z
+
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+
