@@ -64,3 +64,8 @@ bindkey '^Z' fancy-ctrl-z
 export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
 
+
+autoload -U edit-command-line
+zle -N edit-command-line
+bindkey '^xe' edit-command-line
+bindkey '^x^e' edit-command-line
