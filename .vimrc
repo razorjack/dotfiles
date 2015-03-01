@@ -43,6 +43,7 @@ Plugin 'kchmck/vim-coffee-script'
 Plugin 'mattn/emmet-vim'
 Plugin 'nanotech/jellybeans.vim'
 Plugin 'kien/ctrlp.vim'
+Plugin 'FelikZ/ctrlp-py-matcher'
 Plugin 'christoomey/vim-tmux-navigator'
 
 " All of your Plugins must be added before the following line
@@ -215,7 +216,7 @@ let g:path_to_matcher = "/usr/local/bin/matcher"
 
 let g:ctrlp_user_command = ['.git/', 'cd %s && git ls-files . -co --exclude-standard']
 
-let g:ctrlp_match_func = { 'match': 'GoodMatch' }
+" let g:ctrlp_match_func = { 'match': 'GoodMatch' }
 
 function! GoodMatch(items, str, limit, mmode, ispath, crfile, regex)
 
