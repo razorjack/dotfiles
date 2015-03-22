@@ -272,5 +272,7 @@ hi User3 ctermfg=4 ctermbg=234
 hi User4 ctermfg=2 ctermbg=234
 hi User5 ctermfg=5 ctermbg=234
 
+let g:ruby_path = system('echo $HOME/.rbenv/shims')
+
 let g:ctrlp_match_func = {'match' : 'matcher#cmatch' }
 
