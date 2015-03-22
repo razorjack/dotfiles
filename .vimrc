@@ -13,7 +13,7 @@ Plugin 'tpope/vim-fugitive' " Git
 Plugin 'AndrewRadev/splitjoin.vim' " switch between single-line and multi-line statements
 Plugin 'rstacruz/sparkup', {'rtp': 'vim/'} " super fast HTML tags
 Plugin 'Valloric/YouCompleteMe'
-Plugin 'airblade/vim-gitgutter'
+" Plugin 'airblade/vim-gitgutter'
 Plugin 'gorkunov/smartpairs.vim'
 Plugin 'mbbill/undotree'
 Plugin 'sheerun/vim-polyglot'
@@ -26,7 +26,7 @@ Plugin 'tpope/vim-surround'
 Plugin 'tpope/vim-vinegar'
 Plugin 'vim-scripts/gitignore'
 Plugin 'scrooloose/syntastic'
-Plugin 'altercation/vim-colors-solarized'
+" Plugin 'altercation/vim-colors-solarized'
 Plugin 'tpope/vim-commentary'
 Plugin 'tpope/vim-endwise'
 Plugin 'tpope/vim-eunuch'
@@ -46,6 +46,8 @@ Plugin 'kien/ctrlp.vim'
 Plugin 'christoomey/vim-tmux-navigator'
 Plugin 'JazzCore/ctrlp-cmatcher'
 Plugin 'ngmy/vim-rubocop'
+" Plugin 'trusktr/seti.vim'
+" Plugin 'dsolstad/vim-wombat256i'
 
 " All of your Plugins must be added before the following line
 call vundle#end()            " required
@@ -97,7 +99,7 @@ vmap <C-Down> xp`[V`]
 set backupdir=~/.vim/backup
 set directory=~/.vim/backup
 
-colorscheme codeschool
+colorscheme jellybeans
 
 " Cursor type setup
 let &t_SI = "\<Esc>]50;CursorShape=1\x7"    " Insert mode
@@ -210,8 +212,8 @@ let g:vim_markdown_folding_disabled=1
 au VimResized * :wincmd = " Resize panes when terminal resizes
 au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g`\"" | endif " Split panes proportionally
 
-set ttyfast
-set lazyredraw
+" set ttyfast
+" set lazyredraw
 
 let g:path_to_matcher = "/usr/local/bin/matcher"
 
@@ -261,7 +263,7 @@ let g:vroom_use_vimux = 1
 set statusline=
 set statusline +=%4*\ %<%f%*            "full path
 set statusline +=%3*\ %y%*                "file type
-set statusline +=%5*\ %{fugitive#statusline()}
+" set statusline +=%5*\ %{fugitive#statusline()}
 set statusline +=%2*%m%*                "modified flag
 set statusline +=%1*%=%5l%*             "current line
 set statusline +=%2*/%L%*               "total lines
