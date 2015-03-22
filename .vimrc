@@ -43,8 +43,8 @@ Plugin 'kchmck/vim-coffee-script'
 Plugin 'mattn/emmet-vim'
 Plugin 'nanotech/jellybeans.vim'
 Plugin 'kien/ctrlp.vim'
-Plugin 'FelikZ/ctrlp-py-matcher'
 Plugin 'christoomey/vim-tmux-navigator'
+Plugin 'JazzCore/ctrlp-cmatcher'
 
 " All of your Plugins must be added before the following line
 call vundle#end()            " required
@@ -271,3 +271,6 @@ hi User2 ctermfg=2 ctermbg=234
 hi User3 ctermfg=4 ctermbg=234
 hi User4 ctermfg=2 ctermbg=234
 hi User5 ctermfg=5 ctermbg=234
+
+let g:ctrlp_match_func = {'match' : 'matcher#cmatch' }
+
