@@ -45,6 +45,7 @@ Plugin 'nanotech/jellybeans.vim'
 Plugin 'kien/ctrlp.vim'
 Plugin 'christoomey/vim-tmux-navigator'
 Plugin 'JazzCore/ctrlp-cmatcher'
+Plugin 'ngmy/vim-rubocop'
 
 " All of your Plugins must be added before the following line
 call vundle#end()            " required
@@ -276,3 +277,5 @@ let g:ruby_path = system('echo $HOME/.rbenv/shims')
 
 let g:ctrlp_match_func = {'match' : 'matcher#cmatch' }
 
+let g:vimrubocop_keymap = 0
+nmap <Leader>a :RuboCop<CR>
