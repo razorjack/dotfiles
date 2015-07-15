@@ -46,6 +46,7 @@ Plugin 'kien/ctrlp.vim'
 Plugin 'christoomey/vim-tmux-navigator'
 Plugin 'JazzCore/ctrlp-cmatcher'
 Plugin 'ngmy/vim-rubocop'
+Plugin 'junegunn/fzf'
 " Plugin 'trusktr/seti.vim'
 " Plugin 'dsolstad/vim-wombat256i'
 
@@ -244,7 +245,11 @@ function! GoodMatch(items, str, limit, mmode, ispath, crfile, regex)
 
 endfunction
 let g:ctrlp_use_caching = 0
-map <Leader>t :CtrlP<CR>
+if has('nvim')
+  map <Leader>t :FZF<CR>
+else
+  map <Leader>t :CtrlP<CR>
+endif
 
 :highlight SignColumn ctermbg=NONE
 :highlight SpellBad ctermbg=234
@@ -281,3 +286,5 @@ let g:ctrlp_match_func = {'match' : 'matcher#cmatch' }
 
 let g:vimrubocop_keymap = 0
 nmap <Leader>a :RuboCop<CR>
+
+:let $NVIM_TUI_ENABLE_CURSOR_SHAPE=1
