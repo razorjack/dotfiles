@@ -1,8 +1,5 @@
 # set PATH to include rbenv if it exists
-if [ -d "$HOME/.rbenv" ]; then
-    export PATH="$HOME/.rbenv/bin:$PATH"
-    eval "$(rbenv init -)"
-fi
+if which rbenv > /dev/null; then eval "$(rbenv init -)"; fi
 
 export HOMEBREW_INSTALL_BADGE=☕️
 export FZF_DEFAULT_COMMAND='
