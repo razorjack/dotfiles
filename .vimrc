@@ -47,6 +47,7 @@ Plugin 'christoomey/vim-tmux-navigator'
 Plugin 'JazzCore/ctrlp-cmatcher'
 Plugin 'ngmy/vim-rubocop'
 Plugin 'junegunn/fzf'
+Plugin 'bronson/vim-trailing-whitespace'
 " Plugin 'trusktr/seti.vim'
 " Plugin 'dsolstad/vim-wombat256i'
 
