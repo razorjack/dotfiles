@@ -49,6 +49,7 @@ Plugin 'ngmy/vim-rubocop'
 Plugin 'junegunn/fzf'
 Plugin 'bronson/vim-trailing-whitespace'
 Plugin 'rust-lang/rust.vim'
+Plugin 'elixir-lang/vim-elixir'
 " Plugin 'trusktr/seti.vim'
 " Plugin 'dsolstad/vim-wombat256i'
 
