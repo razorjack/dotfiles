@@ -1,13 +1,7 @@
 IRB.conf[:BACK_TRACE_LIMIT] = 100
 
 begin
-  # load wirble
   require 'rubygems'
-  require 'wirble'
-
-  # start wirble (with color)
-  Wirble.init
-  Wirble.colorize
 rescue LoadError => err
 end
 
