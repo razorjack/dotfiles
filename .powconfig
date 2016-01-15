@@ -1,6 +1,5 @@
+eval "$(rbenv init -)"
 export POW_TIMEOUT=3600
 export POW_WORKERS=3
 export HOME=/Users/razorjack
-export RBENV_ROOT=/Users/razorjack/.rbenv
-export PATH=$RBENV_ROOT/shims:$RBENV_ROOT/bin:$PATH
-eval "$(rbenv init -)"
+pwd > ~/Desktop/debug.txt
