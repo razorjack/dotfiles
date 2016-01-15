@@ -25,7 +25,7 @@ Plugin 'honza/vim-snippets'
 Plugin 'tpope/vim-surround'
 Plugin 'tpope/vim-vinegar'
 Plugin 'vim-scripts/gitignore'
-Plugin 'scrooloose/syntastic'
+
 " Plugin 'altercation/vim-colors-solarized'
 Plugin 'tpope/vim-commentary'
 Plugin 'tpope/vim-endwise'
@@ -42,14 +42,21 @@ Plugin 'marijnh/tern_for_vim'
 Plugin 'kchmck/vim-coffee-script'
 Plugin 'mattn/emmet-vim'
 Plugin 'nanotech/jellybeans.vim'
-Plugin 'kien/ctrlp.vim'
 Plugin 'christoomey/vim-tmux-navigator'
 Plugin 'JazzCore/ctrlp-cmatcher'
 Plugin 'ngmy/vim-rubocop'
-Plugin 'junegunn/fzf'
 Plugin 'bronson/vim-trailing-whitespace'
 Plugin 'rust-lang/rust.vim'
 Plugin 'elixir-lang/vim-elixir'
+
+if has('nvim')
+  Plugin 'junegunn/fzf'
+  Plugin 'benekastah/neomake'
+else
+  Plugin 'scrooloose/syntastic'
+  Plugin 'kien/ctrlp.vim'
+endif
+
 " Plugin 'trusktr/seti.vim'
 " Plugin 'dsolstad/vim-wombat256i'
 
@@ -89,7 +96,6 @@ set number                      " show line numbers
 set wildignore+=*.o,*.obj,.git,*.rbc,*.class,.svn,vendor/gems/*,tmp/**,public/system/**,public/uploads/**,public/assets/**,site_media/m/**,build/**
 set ls=2                        " always display filename
 
-let g:ctrlp_custom_ignore = '\.git$\|\.hg$\|\.svn$\|public/system'
 
 " Bubble single lines
 nmap <C-Up> ddkP
@@ -198,10 +204,16 @@ endfunction
 
 " C/C++/Objective-C
 
-let g:clang_library_path = '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib'
-let g:syntastic_ruby_checkers = ['mri', 'ruby-lint']
-let g:syntastic_c_checkers = ['gcc', 'oclint']
-let g:syntastic_javascript_checkers = ['eslint']
+if has('nvim')
+  " let g:neomake_javascript_enabled_makers = ['eslint']
+  " let g:neomake_ruby_enabled_makers = ['mri', 'ruby-lint']
+  " let g:neomake_c_enabled_makers = ['gcc']
+  autocmd! BufWritePost * Neomake
+else
+  let g:syntastic_ruby_checkers = ['mri', 'ruby-lint']
+  let g:syntastic_c_checkers = ['gcc']
+  let g:syntastic_javascript_checkers = ['eslint']
+endif
 
 set fillchars+=vert:\ 
 
@@ -221,37 +233,41 @@ au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g
 
 let g:path_to_matcher = "/usr/local/bin/matcher"
 
-let g:ctrlp_user_command = ['.git/', 'cd %s && git ls-files . -co --exclude-standard']
-
-" let g:ctrlp_match_func = { 'match': 'GoodMatch' }
-
-function! GoodMatch(items, str, limit, mmode, ispath, crfile, regex)
-
-  " Create a cache file if not yet exists
-  let cachefile = ctrlp#utils#cachedir().'/matcher.cache'
-  if !( filereadable(cachefile) && a:items == readfile(cachefile) )
-    call writefile(a:items, cachefile)
-  endif
-  if !filereadable(cachefile)
-    return []
-  endif
-
-  " a:mmode is currently ignored. In the future, we should probably do
-  " something about that. the matcher behaves like "full-line".
-  let cmd = g:path_to_matcher.' --limit '.a:limit.' --manifest '.cachefile.' '
-  if !( exists('g:ctrlp_dotfiles') && g:ctrlp_dotfiles )
-    let cmd = cmd.'--no-dotfiles '
-  endif
-  let cmd = cmd.a:str
-
-  return split(system(cmd), "\n")
-
-endfunction
-let g:ctrlp_use_caching = 0
 if has('nvim')
   map <Leader>t :FZF<CR>
 else
+  let g:ctrlp_custom_ignore = '\.git$\|\.hg$\|\.svn$\|public/system'
   map <Leader>t :CtrlP<CR>
+
+  let g:ctrlp_match_func = {'match' : 'matcher#cmatch' }
+
+  let g:ctrlp_user_command = ['.git/', 'cd %s && git ls-files . -co --exclude-standard']
+
+  " let g:ctrlp_match_func = { 'match': 'GoodMatch' }
+
+  function! GoodMatch(items, str, limit, mmode, ispath, crfile, regex)
+
+    " Create a cache file if not yet exists
+    let cachefile = ctrlp#utils#cachedir().'/matcher.cache'
+    if !( filereadable(cachefile) && a:items == readfile(cachefile) )
+      call writefile(a:items, cachefile)
+    endif
+    if !filereadable(cachefile)
+      return []
+    endif
+
+    " a:mmode is currently ignored. In the future, we should probably do
+    " something about that. the matcher behaves like "full-line".
+    let cmd = g:path_to_matcher.' --limit '.a:limit.' --manifest '.cachefile.' '
+    if !( exists('g:ctrlp_dotfiles') && g:ctrlp_dotfiles )
+      let cmd = cmd.'--no-dotfiles '
+    endif
+    let cmd = cmd.a:str
+
+    return split(system(cmd), "\n")
+
+  endfunction
+  let g:ctrlp_use_caching = 0
 endif
 
 :highlight SignColumn ctermbg=NONE
@@ -285,7 +301,6 @@ hi User5 ctermfg=5 ctermbg=234
 
 let g:ruby_path = system('echo $HOME/.rbenv/shims')
 
-let g:ctrlp_match_func = {'match' : 'matcher#cmatch' }
 
 let g:vimrubocop_keymap = 0
 nmap <Leader>a :RuboCop<CR>
