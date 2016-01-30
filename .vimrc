@@ -11,8 +11,7 @@ Plug 'mbbill/undotree'
 Plug 'sheerun/vim-polyglot'
 Plug 'tpope/vim-bundler'
 Plug 'benmills/vimux'
-Plug 'SirVer/ultisnips'
-Plug 'honza/vim-snippets'
+Plug 'SirVer/ultisnips' | Plug 'honza/vim-snippets'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-vinegar'
 Plug 'vim-scripts/gitignore'
@@ -34,8 +33,8 @@ Plug 'kchmck/vim-coffee-script'
 Plug 'nanotech/jellybeans.vim'
 Plug 'christoomey/vim-tmux-navigator'
 Plug 'bronson/vim-trailing-whitespace'
-Plug 'rust-lang/rust.vim'
-Plug 'elixir-lang/vim-elixir'
+Plug 'rust-lang/rust.vim', { 'for': 'rust' }
+Plug 'elixir-lang/vim-elixir', { 'for': 'clojure' }
 
 if has('nvim')
   Plug 'junegunn/fzf'
