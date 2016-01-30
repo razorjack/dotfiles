@@ -1,80 +1,53 @@
 set nocompatible              " be iMproved, required
 filetype off                  " required
 
-" set the runtime path to include Vundle and initialize
-set rtp+=~/.vim/bundle/Vundle.vim
-call vundle#begin()
-" alternatively, pass a path where Vundle should install plugins
-"call vundle#begin('~/some/path/here')
+call plug#begin('~/.vim/plugged')
 
-" let Vundle manage Vundle, required
-Plugin 'gmarik/Vundle.vim'
-Plugin 'tpope/vim-fugitive' " Git
-Plugin 'AndrewRadev/splitjoin.vim' " switch between single-line and multi-line statements
-Plugin 'rstacruz/sparkup', {'rtp': 'vim/'} " super fast HTML tags
-Plugin 'Valloric/YouCompleteMe'
-" Plugin 'airblade/vim-gitgutter'
-Plugin 'gorkunov/smartpairs.vim'
-Plugin 'mbbill/undotree'
-Plugin 'sheerun/vim-polyglot'
-Plugin 'skalnik/vim-vroom'
-Plugin 'tpope/vim-bundler'
-Plugin 'benmills/vimux'
-Plugin 'SirVer/ultisnips'
-Plugin 'honza/vim-snippets'
-Plugin 'tpope/vim-surround'
-Plugin 'tpope/vim-vinegar'
-Plugin 'vim-scripts/gitignore'
+Plug 'tpope/vim-fugitive' " Git
+Plug 'AndrewRadev/splitjoin.vim' " switch between single-line and multi-line statements
+Plug 'Valloric/YouCompleteMe'
+Plug 'gorkunov/smartpairs.vim'
+Plug 'mbbill/undotree'
+Plug 'sheerun/vim-polyglot'
+Plug 'tpope/vim-bundler'
+Plug 'benmills/vimux'
+Plug 'SirVer/ultisnips'
+Plug 'honza/vim-snippets'
+Plug 'tpope/vim-surround'
+Plug 'tpope/vim-vinegar'
+Plug 'vim-scripts/gitignore'
 
-" Plugin 'altercation/vim-colors-solarized'
-Plugin 'tpope/vim-commentary'
-Plugin 'tpope/vim-endwise'
-Plugin 'tpope/vim-eunuch'
-Plugin 'godlygeek/tabular'
-Plugin 'plasticboy/vim-markdown'
-Plugin 'vim-ruby/vim-ruby'
-Plugin 'tpope/vim-rails'
-Plugin 'tpope/vim-rake'
-Plugin 'rking/ag.vim'
-Plugin 'jelera/vim-javascript-syntax'
-Plugin 'Raimondi/delimitMate'
-Plugin 'marijnh/tern_for_vim'
-Plugin 'kchmck/vim-coffee-script'
-Plugin 'mattn/emmet-vim'
-Plugin 'nanotech/jellybeans.vim'
-Plugin 'christoomey/vim-tmux-navigator'
-Plugin 'JazzCore/ctrlp-cmatcher'
-Plugin 'ngmy/vim-rubocop'
-Plugin 'bronson/vim-trailing-whitespace'
-Plugin 'rust-lang/rust.vim'
-Plugin 'elixir-lang/vim-elixir'
+" Plug 'altercation/vim-colors-solarized'
+Plug 'tpope/vim-commentary'
+Plug 'tpope/vim-endwise'
+Plug 'tpope/vim-eunuch'
+Plug 'junegunn/vim-easy-align'
+Plug 'plasticboy/vim-markdown'
+Plug 'vim-ruby/vim-ruby'
+Plug 'tpope/vim-rails'
+Plug 'tpope/vim-rake'
+Plug 'rking/ag.vim'
+Plug 'jelera/vim-javascript-syntax'
+Plug 'Raimondi/delimitMate'
+Plug 'marijnh/tern_for_vim'
+Plug 'kchmck/vim-coffee-script'
+Plug 'nanotech/jellybeans.vim'
+Plug 'christoomey/vim-tmux-navigator'
+Plug 'bronson/vim-trailing-whitespace'
+Plug 'rust-lang/rust.vim'
+Plug 'elixir-lang/vim-elixir'
 
 if has('nvim')
-  Plugin 'junegunn/fzf'
-  Plugin 'benekastah/neomake'
-  Plugin 'kassio/neoterm'
+  Plug 'junegunn/fzf'
+  Plug 'benekastah/neomake'
+  Plug 'kassio/neoterm'
 else
-  Plugin 'scrooloose/syntastic'
-  Plugin 'kien/ctrlp.vim'
+  Plug 'JazzCore/ctrlp-cmatcher'
+  Plug 'scrooloose/syntastic'
+  Plug 'kien/ctrlp.vim'
 endif
 
-" Plugin 'trusktr/seti.vim'
-" Plugin 'dsolstad/vim-wombat256i'
-
-" All of your Plugins must be added before the following line
-call vundle#end()            " required
-filetype plugin indent on    " required
-" To ignore plugin indent changes, instead use:
-"filetype plugin on
-"
-" Brief help
-" :PluginList       - lists configured plugins
-" :PluginInstall    - installs plugins; append `!` to update or just :PluginUpdate
-" :PluginSearch foo - searches for foo; append `!` to refresh local cache
-" :PluginClean      - confirms removal of unused plugins; append `!` to auto-approve removal
-"
-" see :h vundle for more details or wiki for FAQ
-" Put your non-Plugin stuff after this line
+call plug#end()
 
 syntax enable
 set encoding=utf-8
