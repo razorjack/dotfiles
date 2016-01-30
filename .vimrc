@@ -183,6 +183,11 @@ if has('nvim')
   " let g:neomake_c_enabled_makers = ['gcc']
   autocmd! BufWritePost * Neomake
 else
+  :highlight SyntasticErrorSign ctermbg=234
+  :highlight SyntasticWarningSign ctermbg=234
+  :highlight SyntasticStyleErrorSign ctermbg=234
+  :highlight SyntasticStyleWarningSign ctermbg=234
+
   let g:syntastic_ruby_checkers = ['mri', 'ruby-lint']
   let g:syntastic_c_checkers = ['gcc']
   let g:syntastic_javascript_checkers = ['eslint']
@@ -204,11 +209,11 @@ au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g
 " set ttyfast
 " set lazyredraw
 
-let g:path_to_matcher = "/usr/local/bin/matcher"
 
 if has('nvim')
   map <Leader>t :FZF<CR>
 else
+  let g:path_to_matcher = "/usr/local/bin/matcher"
   let g:ctrlp_custom_ignore = '\.git$\|\.hg$\|\.svn$\|public/system'
   map <Leader>t :CtrlP<CR>
 
@@ -249,11 +254,6 @@ endif
 :highlight SpellRare ctermbg=234
 :highlight SpellLocal ctermbg=234
 :highlight CursorLine ctermbg=234
-
-:highlight SyntasticErrorSign ctermbg=234
-:highlight SyntasticWarningSign ctermbg=234
-:highlight SyntasticStyleErrorSign ctermbg=234
-:highlight SyntasticStyleWarningSign ctermbg=234
 
 let g:vroom_use_vimux = 1
 
