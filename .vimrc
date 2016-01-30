@@ -52,6 +52,7 @@ Plugin 'elixir-lang/vim-elixir'
 if has('nvim')
   Plugin 'junegunn/fzf'
   Plugin 'benekastah/neomake'
+  Plugin 'kassio/neoterm'
 else
   Plugin 'scrooloose/syntastic'
   Plugin 'kien/ctrlp.vim'
