@@ -279,3 +279,12 @@ let g:vimrubocop_keymap = 0
 nmap <Leader>a :RuboCop<CR>
 
 :let $NVIM_TUI_ENABLE_CURSOR_SHAPE=1
+
+" Start interactive EasyAlign in visual mode (e.g. vipga)
+xmap ga <Plug>(EasyAlign)
+
+" Start interactive EasyAlign for a motion/text object (e.g. gaip)
+nmap ga <Plug>(EasyAlign)
+
+
+let g:neomake_javascript_enabled_makers = ['eslint']
