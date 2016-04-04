@@ -5,7 +5,6 @@ call plug#begin('~/.vim/plugged')
 
 Plug 'tpope/vim-fugitive' " Git
 Plug 'AndrewRadev/splitjoin.vim' " switch between single-line and multi-line statements
-Plug 'Valloric/YouCompleteMe'
 Plug 'gorkunov/smartpairs.vim'
 Plug 'mbbill/undotree'
 Plug 'sheerun/vim-polyglot'
@@ -40,10 +39,12 @@ if has('nvim')
   Plug 'junegunn/fzf'
   Plug 'benekastah/neomake'
   Plug 'kassio/neoterm'
+  Plug 'Shougo/deoplete.nvim'
 else
   Plug 'JazzCore/ctrlp-cmatcher'
   Plug 'scrooloose/syntastic'
   Plug 'kien/ctrlp.vim'
+  Plug 'Valloric/YouCompleteMe'
 endif
 
 call plug#end()
@@ -182,6 +183,12 @@ if has('nvim')
   " let g:neomake_ruby_enabled_makers = ['mri', 'ruby-lint']
   " let g:neomake_c_enabled_makers = ['gcc']
   autocmd! BufWritePost * Neomake
+
+  " Use deoplete.
+  let g:deoplete#enable_at_startup = 1
+  let g:deoplete#sources = {}
+  let g:deoplete#sources._ = ['buffer', 'tag']
+  let g:deoplete#tag#cache_limit_size = 10000000
 else
   :highlight SyntasticErrorSign ctermbg=234
   :highlight SyntasticWarningSign ctermbg=234
