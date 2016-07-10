@@ -295,3 +295,4 @@ nmap ga <Plug>(EasyAlign)
 
 
 let g:neomake_javascript_enabled_makers = ['eslint']
+let g:neomake_ruby_enabled_makers = ['mri', 'rubocop']
