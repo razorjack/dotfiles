@@ -2,4 +2,3 @@ eval "$(rbenv init -)"
 export POW_TIMEOUT=3600
 export POW_WORKERS=3
 export HOME=/Users/razorjack
-pwd > ~/Desktop/debug.txt
