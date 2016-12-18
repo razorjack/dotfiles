@@ -91,7 +91,7 @@ set scrolloff=3                 " keep more context when scrolling off the end o
 
 set ttimeoutlen=10              " Set ESC lag to 100ms
 
-set clipboard=unnamed           " User system clipboard
+set clipboard=unnamedplus       " User system clipboard
 "
 " Directories for swp files
 set backupdir=~/.vim/backup
