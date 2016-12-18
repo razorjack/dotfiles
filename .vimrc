@@ -39,7 +39,7 @@ Plug 'nanotech/jellybeans.vim'
 Plug 'christoomey/vim-tmux-navigator'
 Plug 'bronson/vim-trailing-whitespace'
 Plug 'rust-lang/rust.vim', { 'for': 'rust' }
-Plug 'elixir-lang/vim-elixir', { 'for': 'clojure' }
+Plug 'elixir-lang/vim-elixir', { 'for': 'elixir' }
 Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
 
