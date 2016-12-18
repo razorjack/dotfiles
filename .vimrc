@@ -63,6 +63,7 @@ let g:python2_host_prog = '/usr/local/bin/python2'
 let g:python3_host_prog = '/usr/local/bin/python3'
 
 syntax enable
+
 set encoding=utf-8
 set showcmd                     " display incomplete commands
 
@@ -83,6 +84,21 @@ set number                      " show line numbers
 set wildignore+=*.o,*.obj,.git,*.rbc,*.class,.svn,vendor/gems/*,tmp/**,public/system/**,public/uploads/**,public/assets/**,site_media/m/**,build/**
 set ls=2                        " always display filename
 
+" Prevent Vim from clobbering the scrollback buffer. See
+" http://www.shallowsky.com/linux/noaltscreen.html
+set t_ti= t_te=
+set scrolloff=3                 " keep more context when scrolling off the end of a buffer
+
+set ttimeoutlen=10              " Set ESC lag to 100ms
+
+set clipboard=unnamed           " User system clipboard
+"
+" Directories for swp files
+set backupdir=~/.vim/backup
+set directory=~/.vim/backup
+
+set fillchars+=vert:\ 
+
 
 " Bubble single lines
 nmap <C-Up> ddkP
@@ -91,22 +107,12 @@ nmap <C-Down> ddp
 vmap <C-Up> xkP`[V`]
 vmap <C-Down> xp`[V`]
 
-
-" Directories for swp files
-set backupdir=~/.vim/backup
-set directory=~/.vim/backup
-
 colorscheme jellybeans
 
 " Cursor type setup
 let &t_SI = "\<Esc>]50;CursorShape=1\x7"    " Insert mode
 let &t_EI = "\<Esc>]50;CursorShape=0\x7"    " Command mode
 autocmd InsertEnter,InsertLeave * set cul!  " Highlight current line in insert mode 
-
-set ttimeoutlen=10                         " Set ESC lag to 100ms
-
-" User system clipboard
-set clipboard=unnamed
 
 " Use comma as a leader key
 let mapleader=","
@@ -146,12 +152,6 @@ imap <c-c> <esc>
 " double percentage sign in command mode is expanded
 " to directory of current file - http://vimcasts.org/e/14
 cnoremap %% <C-R>=expand('%:h').'/'<cr>
-
-" Prevent Vim from clobbering the scrollback buffer. See
-" http://www.shallowsky.com/linux/noaltscreen.html
-set t_ti= t_te=
-" keep more context when scrolling off the end of a buffer
-set scrolloff=3
 
 " I like solarized color scheme, let's setup it
 " in case I have a need to switch
@@ -213,8 +213,6 @@ else
   let g:syntastic_javascript_checkers = ['eslint']
 endif
 
-set fillchars+=vert:\ 
-
 let g:ycm_collect_identifiers_from_tags_files = 1 " use ctags
 
 let g:UltiSnipsExpandTrigger="<c-j>"
@@ -225,10 +223,6 @@ let g:vim_markdown_folding_disabled=1
 
 au VimResized * :wincmd = " Resize panes when terminal resizes
 au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g`\"" | endif " Split panes proportionally
-
-" set ttyfast
-" set lazyredraw
-
 
 if has('nvim')
   map <Leader>t :FZF<CR>
