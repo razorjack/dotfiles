@@ -40,6 +40,7 @@ Plug 'christoomey/vim-tmux-navigator'
 Plug 'bronson/vim-trailing-whitespace'
 Plug 'rust-lang/rust.vim', { 'for': 'rust' }
 Plug 'elixir-lang/vim-elixir', { 'for': 'clojure' }
+Plug 'Shougo/vimfiler.vim'
 
 if has('nvim')
   Plug 'junegunn/fzf'
