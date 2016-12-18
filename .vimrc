@@ -45,7 +45,7 @@ if has('nvim')
   Plug 'junegunn/fzf'
   Plug 'benekastah/neomake'
   Plug 'kassio/neoterm'
-  Plug 'Shougo/deoplete.nvim'
+  Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
 else
   Plug 'JazzCore/ctrlp-cmatcher'
   Plug 'scrooloose/syntastic'
