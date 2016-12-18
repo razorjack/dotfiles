@@ -92,10 +92,16 @@ set scrolloff=3                 " keep more context when scrolling off the end o
 set ttimeoutlen=10              " Set ESC lag to 100ms
 
 set clipboard=unnamedplus       " User system clipboard
-"
-" Directories for swp files
-set backupdir=~/.vim/backup
-set directory=~/.vim/backup
+set noshowmode                  " Don't show -- INSERT --
+set lazyredraw                  " Buffer screen updates
+set hidden                      " Disable No write since last change messages
+
+set noerrorbells                " STFU
+
+" Don't create backups
+set noswapfile
+set nobackup
+set nowb
 
 set fillchars+=vert:\ 
 
