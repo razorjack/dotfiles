@@ -25,15 +25,15 @@ Plug 'tpope/vim-commentary'
 Plug 'tpope/vim-endwise'
 Plug 'tpope/vim-eunuch'
 Plug 'junegunn/vim-easy-align'
-Plug 'plasticboy/vim-markdown'
+Plug 'plasticboy/vim-markdown', { 'for': 'markdown' }
 Plug 'vim-ruby/vim-ruby'
 Plug 'tpope/vim-rails'
 Plug 'tpope/vim-rake'
 Plug 'rking/ag.vim'
 Plug 'jelera/vim-javascript-syntax'
 Plug 'Raimondi/delimitMate'
-Plug 'marijnh/tern_for_vim'
-Plug 'kchmck/vim-coffee-script'
+Plug 'marijnh/tern_for_vim', { 'for': 'coffeescript' }
+Plug 'kchmck/vim-coffee-script', { 'for': 'coffeescript' }
 Plug 'christoomey/vim-tmux-navigator'
 Plug 'bronson/vim-trailing-whitespace'
 Plug 'rust-lang/rust.vim', { 'for': 'rust' }
@@ -41,8 +41,8 @@ Plug 'elixir-lang/vim-elixir', { 'for': 'elixir' }
 Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
 
-Plug 'Shougo/vimfiler.vim'
-Plug 'majutsushi/tagbar'
+Plug 'Shougo/vimfiler.vim', { 'on': 'VimFiler' }
+Plug 'majutsushi/tagbar', { 'on': 'Tagbar' }
 
 if has('nvim')
   Plug 'junegunn/fzf'
