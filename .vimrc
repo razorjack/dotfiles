@@ -55,7 +55,7 @@ else
   Plug 'JazzCore/ctrlp-cmatcher'
   Plug 'scrooloose/syntastic'
   Plug 'kien/ctrlp.vim'
-  Plug 'Valloric/YouCompleteMe'
+  Plug 'Valloric/YouCompleteMe', { 'do': './install.py' }
 endif
 
 call plug#end()
