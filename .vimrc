@@ -28,7 +28,7 @@ Plug 'plasticboy/vim-markdown', { 'for': 'markdown' }
 Plug 'vim-ruby/vim-ruby'
 Plug 'tpope/vim-rails'
 Plug 'tpope/vim-rake'
-Plug 'rking/ag.vim'
+Plug 'mileszs/ack.vim'
 Plug 'jelera/vim-javascript-syntax'
 Plug 'Raimondi/delimitMate'
 Plug 'marijnh/tern_for_vim', { 'for': 'coffeescript' }
@@ -104,6 +104,8 @@ set nowb
 
 set fillchars+=vert:\ 
 
+let g:ackprg = 'ag --vimgrep --smart-case'
+cnoreabbrev ag Ack
 
 " Bubble single lines
 nmap <C-Up> ddkP
