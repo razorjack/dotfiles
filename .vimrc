@@ -15,7 +15,6 @@ Plug 'AndrewRadev/splitjoin.vim' " switch between single-line and multi-line sta
 Plug 'gorkunov/smartpairs.vim'
 Plug 'sheerun/vim-polyglot'
 Plug 'tpope/vim-bundler'
-Plug 'benmills/vimux'
 Plug 'SirVer/ultisnips' | Plug 'honza/vim-snippets'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-vinegar'
@@ -274,8 +273,6 @@ endif
 :highlight SpellRare ctermbg=234
 :highlight SpellLocal ctermbg=234
 :highlight CursorLine ctermbg=234
-
-let g:vroom_use_vimux = 1
 
 set statusline=
 set statusline +=%4*\ %<%f%*            "full path
