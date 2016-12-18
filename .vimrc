@@ -13,7 +13,6 @@ call plug#begin('~/.vim/plugged')
 Plug 'tpope/vim-fugitive' " Git
 Plug 'AndrewRadev/splitjoin.vim' " switch between single-line and multi-line statements
 Plug 'gorkunov/smartpairs.vim'
-Plug 'mbbill/undotree'
 Plug 'sheerun/vim-polyglot'
 Plug 'tpope/vim-bundler'
 Plug 'benmills/vimux'
