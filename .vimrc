@@ -308,3 +308,9 @@ nmap ga <Plug>(EasyAlign)
 
 let g:neomake_javascript_enabled_makers = ['eslint']
 let g:neomake_ruby_enabled_makers = ['mri', 'rubocop']
+
+" Neoterm
+nnoremap <silent> <leader>r :call neoterm#test#run('current')<cr>
+nnoremap <silent> <leader><esc> :call neoterm#close()<cr>
+nnoremap <silent> <esc><esc> :call neoterm#close()<cr>
+let g:neoterm_size = 15
