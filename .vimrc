@@ -17,6 +17,7 @@ Plug 'sheerun/vim-polyglot'
 Plug 'tpope/vim-bundler'
 Plug 'SirVer/ultisnips' | Plug 'honza/vim-snippets'
 Plug 'tpope/vim-surround'
+Plug 'tpope/vim-ragtag'
 Plug 'tpope/vim-vinegar'
 Plug 'vim-scripts/gitignore'
 
