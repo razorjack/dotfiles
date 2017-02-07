@@ -11,6 +11,9 @@ compinit
 
 autoload -U auto_bundle_exec
 auto_bundle_exec
+autoload -U auto_spring_or_bundle_exec
+auto_spring_or_bundle_exec
+
 # enable case insensitive completions
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=*' 'l:|=* r:|=*'
 
