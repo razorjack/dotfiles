@@ -20,6 +20,7 @@ Plug 'tpope/vim-surround'
 Plug 'tpope/vim-ragtag'
 Plug 'tpope/vim-vinegar'
 Plug 'vim-scripts/gitignore'
+Plug 'janko-m/vim-test'
 
 Plug 'tpope/vim-commentary'
 Plug 'tpope/vim-endwise'
@@ -311,7 +312,11 @@ let g:neomake_javascript_enabled_makers = ['eslint']
 let g:neomake_ruby_enabled_makers = ['mri', 'rubocop']
 
 " Neoterm
-nnoremap <silent> <leader>r :call neoterm#test#run('current')<cr>
 nnoremap <silent> <leader><esc> :call neoterm#close()<cr>
 nnoremap <silent> <esc><esc> :call neoterm#close()<cr>
 let g:neoterm_size = 15
+
+" vim-test
+nmap <silent> <leader>r :TestNearest<CR>
+nmap <silent> <leader>R :TestFile<CR>
+let test#strategy = "neoterm"
