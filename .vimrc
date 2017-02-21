@@ -92,7 +92,7 @@ set scrolloff=3                 " keep more context when scrolling off the end o
 
 set ttimeoutlen=10              " Set ESC lag to 100ms
 
-set clipboard=unnamedplus       " User system clipboard
+set clipboard=unnamed           " User system clipboard
 set noshowmode                  " Don't show -- INSERT --
 set lazyredraw                  " Buffer screen updates
 set hidden                      " Disable No write since last change messages
