@@ -50,6 +50,7 @@ if has('nvim')
   Plug 'benekastah/neomake'
   Plug 'kassio/neoterm'
   Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
+  Plug 'bfredl/nvim-miniyank'
 else
   Plug 'JazzCore/ctrlp-cmatcher'
   Plug 'scrooloose/syntastic'
@@ -320,3 +321,8 @@ let g:neoterm_size = 15
 nmap <silent> <leader>r :TestNearest<CR>
 nmap <silent> <leader>R :TestFile<CR>
 let test#strategy = "neoterm"
+
+if has('nvim')
+  map p <Plug>(miniyank-autoput)
+  map P <Plug>(miniyank-autoPut)
+endif
