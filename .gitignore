@@ -41,3 +41,4 @@ Sites/
 !.zsh
 !.zshenv
 !.zshrc
+!.setup.sh
