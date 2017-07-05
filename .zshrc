@@ -80,3 +80,25 @@ bindkey '^xe' edit-command-line
 bindkey '^x^e' edit-command-line
 
 test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
+
+function xzarchive() {
+  archive_target=${1%/}
+
+  if [ -d $archive_target/log/ ]; then
+    :> $archive_target/log/*.log
+  fi
+
+  if [ -d $archive_target/tmp/cache ]; then
+    rm -rf $archive_target/tmp/cache
+  fi
+
+  if [ -d $archive_target/public/uploads ]; then
+    rm -rf $archive_target/public/uploads
+  fi
+
+  if [ -d $archive_target/public/system ]; then
+    rm -rf $archive_target/public/system
+  fi
+
+  XZ_OPT=-9 tar cJfv $archive_target.tar.xz $archive_target
+}
