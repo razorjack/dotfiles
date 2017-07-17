@@ -18,6 +18,7 @@ Sites/
 !.agignore
 !.bash_profile
 !.bashrc
+!Brewfile
 !.ctags
 !.gemrc
 !.gitattributes
