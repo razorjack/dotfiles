@@ -1,0 +1,54 @@
+// Place your settings in this file to overwrite the default settings
+{
+    "editor.fontFamily": "Anonymous Pro, Monaco, 'Courier New', monospace",
+    "editor.lineHeight": 21,
+    "editor.fontSize": 16,
+    "editor.tabSize": 2,
+    "vim.enableNeovim": true,
+    "vim.leader": ",",
+    "vim.useSystemClipboard": true,
+    "vim.disableAnnoyingNeovimMessage": true,
+    "workbench.activityBar.visible": false,
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/CVS": true,
+        "**/.DS_Store": true,
+        "public/system/*": true,
+        "public/uploads/*": true,
+        "public/packs/*": true,
+        "public/packs-test/*": true,
+        "node_modules": true,
+        "bower_components": true,
+        "tmp/*": true,
+        "coverage/*": true
+    },
+    "workbench.statusBar.visible": true,
+    "workbench.colorCustomizations": {
+        "statusBar.background" : "#303030",
+        "statusBar.noFolderBackground" : "#222225",
+        "statusBar.debuggingBackground": "#511f1f"
+    },
+    "terminal.integrated.fontFamily": "Anonymous Pro, Monaco, 'Courier New', monospace",
+    "terminal.integrated.fontSize": 16,
+    "terminal.integrated.lineHeight": 1.2,
+    "terminal.integrated.cursorBlinking": true,
+    "ruby.lint": {
+        "reek": false,
+        "rubocop": true,
+        "ruby": true,
+        "fasterer": true,
+        "debride": false,
+        "ruby-lint": false
+    },
+    "ruby.specCommand": "bin/rspec",
+    "stylelint.enable": true,
+    "css.validate": false,
+    "scss.validate": false,
+    "window.zoomLevel": 0,
+    "editor.renderControlCharacters": true,
+    "editor.renderWhitespace": "none",
+    "files.insertFinalNewline": true,
+    "workbench.colorTheme": "Default Dark+"
+}
