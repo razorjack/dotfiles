@@ -32,6 +32,7 @@ Sites/
 !.irbrc
 !.powconfig
 !.profile
+!.pryrc
 !.psqlrc
 !.railsrc
 !.tmux.conf
