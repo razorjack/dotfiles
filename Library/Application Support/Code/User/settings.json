@@ -1,8 +1,8 @@
 // Place your settings in this file to overwrite the default settings
 {
     "editor.fontFamily": "SFMono-Light, Anonymous Pro, Monaco, 'Courier New', monospace",
-    "editor.lineHeight": 22,
-    "editor.fontSize": 16,
+    "editor.lineHeight": 21,
+    "editor.fontSize": 15,
     "editor.tabSize": 2,
     "vim.enableNeovim": true,
     "vim.leader": ",",
@@ -31,8 +31,8 @@
         "statusBar.debuggingBackground": "#511f1f"
     },
     "terminal.integrated.fontFamily": "SFMono-Light, Anonymous Pro, Monaco, 'Courier New', monospace",
-    "terminal.integrated.fontSize": 16,
-    "terminal.integrated.lineHeight": 1.2,
+    "terminal.integrated.fontSize": 14,
+    "terminal.integrated.lineHeight": 1.25,
     "terminal.integrated.cursorBlinking": true,
     "ruby.lint": {
         "reek": false,
