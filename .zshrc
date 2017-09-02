@@ -100,5 +100,5 @@ function xzarchive() {
     rm -rf $archive_target/public/system
   fi
 
-  XZ_OPT=-9 tar cJfv $archive_target.tar.xz $archive_target
+  tar -c "$archive_target" | xz -9 --lzma2=preset=9,dict=512Mi --verbose > "$archive_target.tar.xz"
 }
