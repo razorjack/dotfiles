@@ -102,3 +102,7 @@ function xzarchive() {
 
   tar -c "$archive_target" | xz -9 --lzma2=preset=9,dict=512Mi --verbose > "$archive_target.tar.xz"
 }
+
+function ccat() {
+  rougify -t molokai $1
+}
