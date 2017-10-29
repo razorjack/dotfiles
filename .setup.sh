@@ -144,3 +144,5 @@ defaults write com.google.Chrome.canary AppleEnableMouseSwipeNavigateWithScrolls
 
 defaults write com.microsoft.VSCode ApplePressAndHoldEnabled -bool false         # For VS Code
 defaults write com.microsoft.VSCodeInsiders ApplePressAndHoldEnabled -bool false # For VS Code Insider
+
+xcode-select --install
