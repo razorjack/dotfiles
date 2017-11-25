@@ -146,3 +146,7 @@ defaults write com.microsoft.VSCode ApplePressAndHoldEnabled -bool false        
 defaults write com.microsoft.VSCodeInsiders ApplePressAndHoldEnabled -bool false # For VS Code Insider
 
 xcode-select --install
+
+rbenv install $(cat ~/.ruby-version)
+rbenv shell $(cat ~/.ruby-version)
+gem install bundler rouge git-up
