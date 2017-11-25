@@ -5,3 +5,5 @@
 tags
 !tags/
 .vscode/
+.autoenv.zsh
+.autoenv_leave.zsh
