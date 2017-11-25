@@ -9,3 +9,4 @@ export FZF_DEFAULT_COMMAND='
 export GOPATH="$HOME/.golang"
 export PATH=$PATH:$GOPATH/bin
 export HISTCONTROL=ignoreboth:erasedups
+source /usr/local/opt/autoenv/activate.sh
