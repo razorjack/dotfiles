@@ -202,11 +202,6 @@ endfunction
 " C/C++/Objective-C
 
 if has('nvim')
-  " let g:neomake_javascript_enabled_makers = ['eslint']
-  " let g:neomake_ruby_enabled_makers = ['mri', 'ruby-lint']
-  " let g:neomake_c_enabled_makers = ['gcc']
-  autocmd! BufWritePost * Neomake
-
   " Use deoplete.
   let g:deoplete#enable_at_startup = 1
   let g:deoplete#sources = {}
@@ -309,8 +304,10 @@ xmap ga <Plug>(EasyAlign)
 nmap ga <Plug>(EasyAlign)
 
 
+autocmd! BufWritePost * Neomake
 let g:neomake_javascript_enabled_makers = ['eslint']
 let g:neomake_ruby_enabled_makers = ['mri', 'rubocop']
+let g:neomake_javascript_eslint_exe = system('PATH=$(npm bin):$PATH && which eslint | tr -d "\n"')
 
 " Neoterm
 nnoremap <silent> <leader><esc> :call neoterm#close()<cr>
