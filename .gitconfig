@@ -1,12 +1,12 @@
 [user]
-	name = Jacek Galanciak
-	email = jacek.galanciak@gmail.com
+  name = Jacek Galanciak
+  email = jacek.galanciak@gmail.com
 [mergetool]
-	keepBackup = true
+  keepBackup = true
 [color]
-	branch = auto
-	diff = auto
-	interactive = auto
+  branch = auto
+  diff = auto
+  interactive = auto
   status = auto
   ui = true
 [help]
@@ -15,7 +15,7 @@
   submodule = 1
 [push]
   # Only push branches that have been set up to track a remote branch.
-	default = current
+  default = current
 [apply]
   whitespace = warn
 
@@ -44,7 +44,7 @@
 [merge]
   tool = vimdiff
 [core]
-	excludesfile = /Users/razorjack/.gitignore_global
+  excludesfile = /Users/razorjack/.gitignore_global
 
 [diff "localizablestrings"]
-	textconv = "iconv -f utf-16 -t utf-8"
+  textconv = "iconv -f utf-16 -t utf-8"
