@@ -49,7 +49,6 @@ export PATH=$OCLINT_HOME/bin:$PATH
 
 source ~/.profile
 
-export VAGRANT_DEFAULT_PROVIDER=parallels
 source `brew --prefix`/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source `brew --prefix`/etc/profile.d/z.sh
 fpath=(/usr/local/share/zsh-completions $fpath)
