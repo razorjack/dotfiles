@@ -45,15 +45,16 @@ Plug 'vim-airline/vim-airline-themes'
 Plug 'Shougo/vimfiler.vim', { 'on': 'VimFiler' }
 Plug 'majutsushi/tagbar', { 'on': 'Tagbar' }
 
+Plug 'benekastah/neomake'
+
 if has('nvim')
   Plug 'junegunn/fzf'
-  Plug 'benekastah/neomake'
   Plug 'kassio/neoterm'
   Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
   Plug 'bfredl/nvim-miniyank'
 else
   Plug 'JazzCore/ctrlp-cmatcher'
-  Plug 'scrooloose/syntastic'
+  " Plug 'scrooloose/syntastic'
   Plug 'kien/ctrlp.vim'
   Plug 'Valloric/YouCompleteMe', { 'do': './install.py' }
 endif
