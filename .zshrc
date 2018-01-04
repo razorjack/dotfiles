@@ -19,7 +19,7 @@ zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}' 'r:|[._-]=* r:|=*' 'l:
 
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/usr/local/sbin:~/bin:$PATH
 export ACK_COLOR_MATCH='red'
-export EDITOR='vim'
+export EDITOR='nvim'
 
 # moar colors
 alias grep="grep --color"
