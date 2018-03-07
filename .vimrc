@@ -41,6 +41,8 @@ Plug 'rust-lang/rust.vim', { 'for': 'rust' }
 Plug 'elixir-lang/vim-elixir', { 'for': 'elixir' }
 Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
+Plug 'rakr/vim-one'
+Plug 'altercation/vim-colors-solarized'
 
 Plug 'Shougo/vimfiler.vim', { 'on': 'VimFiler' }
 Plug 'majutsushi/tagbar', { 'on': 'Tagbar' }
@@ -118,7 +120,30 @@ nmap <C-Down> ddp
 vmap <C-Up> xkP`[V`]
 vmap <C-Down> xp`[V`]
 
-colorscheme jellybeans
+"Credit joshdick
+"Use 24-bit (true-color) mode in Vim/Neovim when outside tmux.
+"If you're using tmux version 2.2 or later, you can remove the outermost $TMUX check and use tmux's 24-bit color support
+"(see < http://sunaku.github.io/tmux-24bit-color.html#usage > for more information.)
+"if (empty($TMUX))
+"  if (has("nvim"))
+"  "For Neovim 0.1.3 and 0.1.4 < https://github.com/neovim/neovim/pull/2198 >
+"  let $NVIM_TUI_ENABLE_TRUE_COLOR=1
+"  endif
+"  "For Neovim > 0.1.5 and Vim > patch 7.4.1799 < https://github.com/vim/vim/commit/61be73bb0f965a895bfb064ea3e55476ac175162 >
+"  "Based on Vim patch 7.4.1770 (`guicolors` option) < https://github.com/vim/vim/commit/8a633e3427b47286869aa4b96f2bfc1fe65b25cd >
+"  " < https://github.com/neovim/neovim/wiki/Following-HEAD#20160511 >
+"  if (has("termguicolors"))
+"    set termguicolors
+"  endif
+"endif
+
+let g:solarized_termcolors = 256
+let g:solarized_visibility = "high"
+let g:solarized_contrast = "high"
+
+set background=light
+colorscheme one
+let g:airline_theme='one'
 
 " Cursor type setup
 let &t_SI = "\<Esc>]50;CursorShape=1\x7"    " Insert mode
@@ -163,12 +188,6 @@ imap <c-c> <esc>
 " double percentage sign in command mode is expanded
 " to directory of current file - http://vimcasts.org/e/14
 cnoremap %% <C-R>=expand('%:h').'/'<cr>
-
-" I like solarized color scheme, let's setup it
-" in case I have a need to switch
-let g:solarized_termcolors = 256 
-let g:solarized_visibility = "high" 
-let g:solarized_contrast = "high" 
 
 
 augroup vimrcEx
@@ -268,12 +287,12 @@ else
   let g:ctrlp_use_caching = 0
 endif
 
-:highlight SignColumn ctermbg=NONE
-:highlight SpellBad ctermbg=234
-:highlight SpellCap ctermbg=234
-:highlight SpellRare ctermbg=234
-:highlight SpellLocal ctermbg=234
-:highlight CursorLine ctermbg=234
+" :highlight SignColumn ctermbg=NONE
+" :highlight SpellBad ctermbg=234
+" :highlight SpellCap ctermbg=234
+" :highlight SpellRare ctermbg=234
+" :highlight SpellLocal ctermbg=234
+" :highlight CursorLine ctermbg=234
 
 set statusline=
 set statusline +=%4*\ %<%f%*            "full path
@@ -284,11 +303,11 @@ set statusline +=%1*%=%5l%*             "current line
 set statusline +=%2*/%L%*               "total lines
 set statusline +=%1*%4v\ %*             "virtual column number
 
-hi User1 ctermfg=2 ctermbg=234
-hi User2 ctermfg=2 ctermbg=234
-hi User3 ctermfg=4 ctermbg=234
-hi User4 ctermfg=2 ctermbg=234
-hi User5 ctermfg=5 ctermbg=234
+" hi User1 ctermfg=2 ctermbg=234
+" hi User2 ctermfg=2 ctermbg=234
+" hi User3 ctermfg=4 ctermbg=234
+" hi User4 ctermfg=2 ctermbg=234
+" hi User5 ctermfg=5 ctermbg=234
 
 let g:ruby_path = system('echo $HOME/.rbenv/shims')
 
@@ -324,3 +343,18 @@ if has('nvim')
   map p <Plug>(miniyank-autoput)
   map P <Plug>(miniyank-autoPut)
 endif
+
+let g:fzf_colors =
+\ { 'fg':      ['fg', 'Normal'],
+  \ 'bg':      ['bg', 'Normal'],
+  \ 'hl':      ['fg', 'Comment'],
+  \ 'fg+':     ['fg', 'CursorLine', 'CursorColumn', 'Normal'],
+  \ 'bg+':     ['bg', 'CursorLine', 'CursorColumn'],
+  \ 'hl+':     ['fg', 'Statement'],
+  \ 'info':    ['fg', 'PreProc'],
+  \ 'border':  ['fg', 'Ignore'],
+  \ 'prompt':  ['fg', 'Conditional'],
+  \ 'pointer': ['fg', 'Exception'],
+  \ 'marker':  ['fg', 'Keyword'],
+  \ 'spinner': ['fg', 'Label'],
+  \ 'header':  ['fg', 'Comment'] }
