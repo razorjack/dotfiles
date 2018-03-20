@@ -4,7 +4,7 @@
     "editor.lineHeight": 21,
     "editor.fontSize": 15,
     "editor.tabSize": 2,
-    "vim.enableNeovim": true,
+    "vim.enableNeovim": false,
     "vim.leader": ",",
     "vim.useSystemClipboard": true,
     "vim.disableAnnoyingNeovimMessage": true,
@@ -65,5 +65,8 @@
     },
     "search.useIgnoreFilesByDefault": true,
     "ruby.linter.run": "onSave",
-    "workbench.editor.enablePreviewFromQuickOpen": false
+    "workbench.editor.enablePreviewFromQuickOpen": false,
+    "emmet.showAbbreviationSuggestions": false,
+    "editor.wordBasedSuggestions": true,
+    "emmet.showExpandedAbbreviation": "never"
 }
