@@ -4,3 +4,4 @@ public/system
 public/fonts
 coverage
 log
+db/structure.sql
