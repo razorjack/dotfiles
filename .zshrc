@@ -91,6 +91,10 @@ function xzarchive() {
     rm -rf $archive_target/tmp/cache
   fi
 
+  if [ -d $archive_target/node_modules ]; then
+    rm -rf $archive_target/node_modules
+  fi
+
   if [ -d $archive_target/public/uploads ]; then
     rm -rf $archive_target/public/uploads
   fi
