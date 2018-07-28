@@ -40,6 +40,7 @@
   fa = fetch --all
   pullff = pull --ff-only
   ff = merge --ff-only
+	up = pull --rebase --autostash
 [merge]
   tool = vimdiff
 [core]
