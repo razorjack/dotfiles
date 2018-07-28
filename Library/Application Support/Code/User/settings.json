@@ -26,8 +26,8 @@
     },
     "workbench.statusBar.visible": true,
     "workbench.colorCustomizations": {
-        "statusBar.background" : "#303030",
-        "statusBar.noFolderBackground" : "#222225",
+        "statusBar.background": "#303030",
+        "statusBar.noFolderBackground": "#222225",
         "statusBar.debuggingBackground": "#511f1f"
     },
     "terminal.integrated.fontFamily": "SFMono-Regular, Anonymous Pro, Monaco, 'Courier New', monospace",
@@ -68,5 +68,12 @@
     "workbench.editor.enablePreviewFromQuickOpen": false,
     "emmet.showAbbreviationSuggestions": false,
     "editor.wordBasedSuggestions": true,
-    "emmet.showExpandedAbbreviation": "never"
+    "emmet.showExpandedAbbreviation": "never",
+    "ruby.locate": {
+        "include": "**/*.rb",
+        "exclude": "{**/@(test|spec|tmp|.*),**/@(test|spec|tmp|.*)/**,**/*_spec.rb}"
+    },
+    "ruby.intellisense": "rubyLocate",
+    "editor.formatOnSave": false,
+    "python.pythonPath": "/usr/local/bin/python3",
 }
