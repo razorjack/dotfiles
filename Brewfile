@@ -1,45 +1,47 @@
-tap "puma/puma"
 tap "heroku/brew"
+tap "homebrew/bundle"
+tap "homebrew/cask"
+tap "homebrew/cask-versions"
+tap "homebrew/core"
 tap "homebrew/dupes"
 tap "homebrew/science"
-tap "homebrew/core"
+tap "homebrew/services"
 tap "homebrew/versions"
 tap "homebrew/x11"
-tap "homebrew/bundle"
-tap "homebrew/services"
-tap "caskroom/versions"
-tap "caskroom/cask"
 tap "neovim/neovim"
+tap "puma/puma"
 cask "xquartz"
 brew "ack"
-brew "freetype"
-brew "fontconfig"
 brew "gettext"
+brew "libffi"
 brew "pcre"
-brew "pixman"
-brew "git"
 brew "autoconf"
+brew "autoenv"
 brew "automake"
 brew "gdbm"
+brew "openssl"
 brew "readline"
 brew "sqlite"
 brew "xz"
-brew "python3"
+brew "python"
 brew "awscli"
+brew "bat"
 brew "boost"
+brew "freetype"
+brew "fontconfig"
+brew "pixman"
+brew "gmp"
 brew "emacs"
 brew "cask"
-brew "chromedriver"
 brew "cscope"
 brew "ctags"
-brew "docker"
+brew "docker", link: false
 brew "libyaml"
-brew "docker-compose"
+brew "docker-compose", link: false
 brew "wxmac"
 brew "elixir"
 brew "lame"
 brew "libogg"
-brew "little-cms2"
 brew "x264"
 brew "xvid"
 brew "ffmpeg", args: ["with-libvorbis", "with-libvpx", "with-openjpeg", "with-opus", "with-rtmpdump", "with-theora", "with-webp", "with-x265"]
@@ -50,20 +52,18 @@ brew "fish"
 brew "fonttools"
 brew "fswatch"
 brew "fzf"
-brew "gmp"
 brew "isl"
 brew "mpfr"
 brew "gcc"
 brew "gdk-pixbuf"
 brew "gifsicle"
+brew "git"
 brew "gnu-tar"
 brew "libgpg-error"
-brew "gnupg"
+brew "gnupg", link: false
 brew "go"
 brew "icu4c"
-brew "lua"
 brew "highlight"
-brew "htop"
 brew "libtool"
 brew "imagemagick"
 brew "intltool"
@@ -71,7 +71,6 @@ brew "jemalloc"
 brew "jpegoptim"
 brew "oniguruma"
 brew "jq"
-brew "python"
 brew "klavaro"
 brew "libao"
 brew "libav"
@@ -82,6 +81,7 @@ brew "libssh2"
 brew "libsvg"
 brew "libtermkey"
 brew "libvterm"
+brew "little-cms2"
 brew "luajit"
 brew "macvim", args: ["with-override-system-vim"]
 brew "mad"
@@ -92,14 +92,16 @@ brew "mpg321"
 brew "msgpack"
 brew "mysql", restart_service: true
 brew "unibilium"
-brew "neovim", args: ["HEAD"]
+brew "neovim"
 brew "nmap"
+brew "node"
 brew "optipng"
 brew "opus-tools"
 brew "orc"
+brew "pandoc"
 brew "phantomjs"
 brew "popt"
-brew "postgresql", restart_service: true
+brew "postgresql@9.6", restart_service: true
 brew "potrace"
 brew "qt"
 brew "r"
@@ -127,7 +129,6 @@ brew "watch"
 brew "watchman"
 brew "wget"
 brew "xhyve"
-brew "yarn"
 brew "youtube-dl"
 brew "z"
 brew "zsh"
@@ -141,15 +142,20 @@ cask "atom"
 cask "backblaze"
 cask "bartender"
 cask "brave"
+cask "chromedriver"
 cask "dropbox"
 cask "firefox"
+cask "firefoxdeveloperedition"
 cask "flux"
 cask "focus"
 cask "glueprint"
 cask "gmvault"
 cask "google-chrome"
+cask "google-chrome-canary"
+cask "gpg-suite"
 cask "handbrake"
 cask "harvest"
+cask "iina"
 cask "imagealpha"
 cask "imageoptim"
 cask "inkscape"
@@ -178,22 +184,17 @@ cask "textmate"
 cask "tower"
 cask "vagrant"
 cask "vimr"
+cask "virtualbox"
 cask "visual-studio-code"
 cask "vmware-fusion"
 cask "wkhtmltopdf"
 cask "xld"
 cask "yakyak"
-cask "caskroom/versions/firefoxdeveloperedition"
-cask "caskroom/versions/firefoxnightly"
-cask "caskroom/versions/google-chrome-canary"
 mas "1Blocker", id: 1107421413
-mas "1Password", id: 443987910
+mas "1Password 7", id: 1333542190
 mas "Bear", id: 1091189122
-mas "Blackmagic Disk Speed Test", id: 425264550
-mas "Byword", id: 420212497
 mas "Capo", id: 696977615
 mas "ColorSnapper2", id: 969418666
-mas "Day One Classic", id: 422304217
 mas "Disk Diag", id: 672206759
 mas "Evernote", id: 406056744
 mas "GarageBand", id: 682658836
@@ -209,18 +210,15 @@ mas "Numbers", id: 409203825
 mas "OmniFocus", id: 867299399
 mas "OmniGraffle", id: 1142578753
 mas "Pages", id: 409201541
-mas "PaintCode", id: 808809998
 mas "Pixelmator", id: 407963104
+mas "Pixelmator Pro", id: 1289583905
 mas "Pocket", id: 568494494
-mas "Prepo", id: 476533227
 mas "Quiver", id: 866773894
-mas "Simplenote", id: 692867256
 mas "Slack", id: 803453959
 mas "Soulver", id: 413965349
 mas "Tapes", id: 779457527
 mas "The Unarchiver", id: 425424353
 mas "Trello", id: 1278508951
-mas "Tweetbot", id: 557168941
-mas "Ulysses", id: 623795237
+mas "Tweetbot", id: 1384080005
 mas "Xcode", id: 497799835
 mas "xScope", id: 889428659
