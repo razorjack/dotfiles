@@ -19,3 +19,6 @@ set -x FZF_DEFAULT_COMMAND 'ag -g ""'
 
 set -x GOPATH "$HOME/.golang"
 set -x HISTCONTROL ignoreboth:erasedups
+set -x DIRENV_LOG_FORMAT ''
+
+set fish_greeting
