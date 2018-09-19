@@ -110,3 +110,5 @@ function ccat() {
   rougify -t molokai $1
 }
 export PATH="/usr/local/opt/postgresql@9.6/bin:$PATH"
+
+eval "$(direnv hook zsh)"
