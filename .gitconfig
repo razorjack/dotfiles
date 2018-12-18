@@ -50,3 +50,5 @@
   textconv = "iconv -f utf-16 -t utf-8"
 [gpg]
 	program = /usr/local/MacGPG2/bin/gpg
+[fetch]
+	prune = true
