@@ -112,3 +112,5 @@ function ccat() {
 export PATH="/usr/local/opt/postgresql@9.6/bin:$PATH"
 
 eval "$(direnv hook zsh)"
+
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
