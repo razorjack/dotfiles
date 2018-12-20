@@ -1,6 +1,3 @@
-# set PATH to include rbenv if it exists
-if which rbenv > /dev/null; then eval "$(rbenv init -)"; fi
-
 export HOMEBREW_INSTALL_BADGE="🔫  💪"
 export FZF_DEFAULT_COMMAND='
   (ag -g "" ||
@@ -24,6 +21,7 @@ export LANG=en_US.UTF-8
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/usr/local/sbin:~/bin:$PATH
 export PATH="/usr/local/opt/postgresql@9.6/bin:$PATH"
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+export DIRENV_LOG_FORMAT=''
 
 function xzarchive() {
   archive_target=${1%/}
@@ -50,3 +48,5 @@ function xzarchive() {
 
   tar -c "$archive_target" | xz -9 --lzma2=preset=9,dict=512Mi --verbose > "$archive_target.tar.xz"
 }
+
+if which rbenv > /dev/null; then eval "$(rbenv init -)"; fi
