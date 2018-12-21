@@ -89,6 +89,7 @@ brew "redis", restart_service: true
 brew "ripgrep"
 brew "rsync"
 brew "rust"
+brew "s3cmd"
 brew "ssh-copy-id"
 brew "the_silver_searcher"
 brew "tmux"
@@ -154,6 +155,7 @@ mas "1Password 7", id: 1333542190
 mas "Bear", id: 1091189122
 mas "Capo", id: 696977615
 mas "ColorSnapper2", id: 969418666
+mas "Day One", id: 1055511498
 mas "Disk Diag", id: 672206759
 mas "Evernote", id: 406056744
 mas "GarageBand", id: 682658836
