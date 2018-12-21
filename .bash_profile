@@ -121,3 +121,7 @@ _fzf_compgen_dir() {
 [[ -s "$HOME/.customenv" ]] && source "$HOME/.customenv"
 
 eval "$(direnv hook bash)"
+
+if [ -f /usr/local/share/bash-completion/bash_completion ]; then
+  . /usr/local/share/bash-completion/bash_completion
+fi
