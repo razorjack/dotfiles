@@ -45,7 +45,7 @@ function xzarchive() {
     rm -rf $archive_target/public/system
   fi
 
-  tar -c "$archive_target" | xz -9 --lzma2=preset=9,dict=512Mi --verbose > "$archive_target.tar.xz"
+  tar -c "$archive_target" | xz -3 --lzma2=preset=3,dict=512Mi --verbose > "$archive_target.tar.xz"
 }
 
 if which rbenv > /dev/null; then eval "$(rbenv init -)"; fi
