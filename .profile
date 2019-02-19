@@ -19,7 +19,6 @@ export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
 
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/usr/local/sbin:~/bin:$PATH
-export PATH="/usr/local/opt/postgresql@9.6/bin:$PATH"
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 export DIRENV_LOG_FORMAT=''
 
