@@ -40,8 +40,8 @@ setopt HIST_VERIFY               # Don't execute immediately upon history expans
 OCLINT_HOME=/opt/oclint
 export PATH=$OCLINT_HOME/bin:$PATH
 
-source `brew --prefix`/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-source `brew --prefix`/etc/profile.d/z.sh
+source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+source /usr/local//etc/profile.d/z.sh
 fpath=(/usr/local/share/zsh-completions $fpath)
 
 # Taken from https://github.com/bkzl/dotfiles/blob/master/zshrc
