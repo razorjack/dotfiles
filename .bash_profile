@@ -22,5 +22,8 @@ if [ -f /usr/local/share/bash-completion/bash_completion ]; then
   . /usr/local/share/bash-completion/bash_completion
 fi
 
+HISTSIZE=10000
+HISTFILESIZE=1000000
+
 source ~/.config/bash/bundler-exec.sh
 source ~/.config/bash/fastprompt.sh
