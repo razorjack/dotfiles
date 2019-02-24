@@ -41,9 +41,6 @@ setopt HIST_SAVE_NO_DUPS         # Don't write duplicate entries in the history 
 setopt HIST_REDUCE_BLANKS        # Remove superfluous blanks before recording entry.
 setopt HIST_VERIFY               # Don't execute immediately upon history expansion.
 
-OCLINT_HOME=/opt/oclint
-export PATH=$OCLINT_HOME/bin:$PATH
-
 source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source /usr/local//etc/profile.d/z.sh
 fpath=(/usr/local/share/zsh-completions $fpath)
