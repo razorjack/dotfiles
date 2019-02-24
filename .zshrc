@@ -59,7 +59,6 @@ zle -N fancy-ctrl-z
 bindkey '^Z' fancy-ctrl-z
 
 bindkey -v
-bindkey '^R' history-incremental-search-backward
 
 autoload -U edit-command-line
 zle -N edit-command-line
