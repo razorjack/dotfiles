@@ -6,8 +6,12 @@ promptinit
 prompt pure
 PURE_GIT_PULL=0
 
-autoload -U compinit
-compinit
+autoload -Uz compinit
+if [ $(date +'%j') != $(stat -f '%Sm' -t '%j' ~/.zcompdump) ]; then
+  compinit
+else
+  compinit -C
+fi
 
 autoload -U auto_bundle_exec
 auto_bundle_exec
