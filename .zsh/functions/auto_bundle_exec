@@ -1,4 +1,4 @@
-bundled_commands=(annotate cap capify cucumber ey foreman guard middleman nanoc rackup rainbows rspec ruby shotgun spec spork thin thor unicorn unicorn_rails)
+bundled_commands=(annotate cap capify cucumber ey foreman guard middleman nanoc rackup rainbows rspec rubocop ruby sidekiq shotgun spec spork thin thor unicorn unicorn_rails)
 
 _bundler-installed() {
   which bundle > /dev/null 2>&1
