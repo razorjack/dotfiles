@@ -12,6 +12,7 @@ if [ $(date +'%j') != $(stat -f '%Sm' -t '%j' ~/.zcompdump) ]; then
 else
   compinit -C
 fi
+zstyle ':completion:*' menu select
 
 autoload -U auto_bundle_exec
 auto_bundle_exec
