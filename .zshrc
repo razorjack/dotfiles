@@ -7,12 +7,12 @@ prompt pure
 PURE_GIT_PULL=0
 
 autoload -Uz compinit
+zstyle ':completion:*' menu select
 if [ $(date +'%j') != $(stat -f '%Sm' -t '%j' ~/.zcompdump) ]; then
   compinit
 else
   compinit -C
 fi
-zstyle ':completion:*' menu select
 
 autoload -U auto_bundle_exec
 auto_bundle_exec
