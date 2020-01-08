@@ -10,20 +10,19 @@ brew "ack"
 brew "autoconf"
 brew "autoenv"
 brew "gdbm"
-brew "openssl"
 brew "readline"
 brew "sqlite"
 brew "xz"
 brew "python"
 brew "awscli"
 brew "bash"
-brew "bash-completion@2"
 brew "bat"
 brew "brotli"
 brew "freetype"
 brew "gettext"
 brew "libffi"
 brew "pcre"
+brew "circleci"
 brew "cscope"
 brew "ctags"
 brew "direnv"
@@ -32,6 +31,7 @@ brew "wxmac"
 brew "elixir"
 brew "exa"
 brew "fd"
+brew "fdupes"
 brew "libogg"
 brew "gmp"
 brew "libevent"
@@ -41,26 +41,22 @@ brew "little-cms2"
 brew "libvorbis"
 brew "sdl2"
 brew "theora"
-brew "x264"
 brew "xvid"
 brew "ffmpeg"
 brew "fish"
 brew "fzf"
-brew "isl"
-brew "mpfr"
-brew "gcc"
 brew "gifsicle"
 brew "git"
 brew "gnu-tar"
 brew "libgpg-error"
 brew "gnupg", link: false
 brew "go"
-brew "haproxy"
 brew "libtool"
 brew "imagemagick"
 brew "jemalloc"
 brew "oniguruma"
 brew "jq"
+brew "mpfr"
 brew "libssh2"
 brew "unibilium"
 brew "libtermkey"
@@ -71,14 +67,12 @@ brew "luajit"
 brew "macvim"
 brew "mas"
 brew "memcached"
-brew "mongodb", restart_service: true
 brew "msgpack"
-brew "mysql", restart_service: true
 brew "neovim"
 brew "node"
 brew "pinentry-mac"
+brew "poppler"
 brew "postgresql", restart_service: true
-brew "r"
 brew "rabbitmq", restart_service: true
 brew "ruby-build"
 brew "rbenv"
@@ -151,22 +145,20 @@ cask "xld"
 cask "yakyak"
 mas "1Blocker", id: 1107421413
 mas "1Password 7", id: 1333542190
+mas "AdGuard for Safari", id: 1440147259
 mas "Bear", id: 1091189122
 mas "Capo", id: 696977615
 mas "ColorSnapper2", id: 969418666
 mas "Day One", id: 1055511498
 mas "Disk Diag", id: 672206759
-mas "EasyScreenOCR", id: 1359663922
 mas "Evernote", id: 406056744
 mas "GarageBand", id: 682658836
 mas "iMovie", id: 408981434
 mas "Keynote", id: 409183694
+mas "Lightshot Screenshot", id: 526298438
 mas "LittleSnapper", id: 403489261
-mas "Localizable Strings Merge", id: 475333727
 mas "Logic Pro X", id: 634148309
 mas "MainStage 3", id: 634159523
-mas "Money Pro", id: 972572731
-mas "Monosnap", id: 540348655
 mas "Numbers", id: 409203825
 mas "OmniFocus", id: 1346203938
 mas "OmniGraffle", id: 1142578753
@@ -174,12 +166,13 @@ mas "Pages", id: 409201541
 mas "Pixelmator", id: 407963104
 mas "Pixelmator Pro", id: 1289583905
 mas "Pocket", id: 568494494
-mas "Quiver", id: 866773894
 mas "Slack", id: 803453959
+mas "Snappy", id: 512617038
 mas "Soulver", id: 413965349
 mas "Tapes", id: 779457527
 mas "The Unarchiver", id: 425424353
 mas "Trello", id: 1278508951
 mas "Tweetbot", id: 1384080005
+mas "Wipr", id: 1320666476
 mas "Xcode", id: 497799835
 mas "xScope", id: 889428659
