@@ -76,3 +76,4 @@ bindkey '^e' edit-command-line
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
 export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
+export PATH="/usr/local/opt/mongodb-community@3.2/bin:$PATH"
