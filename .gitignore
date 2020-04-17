@@ -47,5 +47,6 @@ Sites/
 !.config/fish/*
 !.config/bash/*
 !.ripgreprc
+!.bundle/config
 !Library/Application Support/Code/User/settings.json
 !Library/Application Support/Code/User/keybindings.json
