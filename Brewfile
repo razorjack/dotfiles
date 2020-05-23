@@ -53,6 +53,7 @@ brew "gnu-tar"
 brew "libgpg-error"
 brew "gnupg", link: false
 brew "go"
+brew "goreman"
 brew "libtool"
 brew "imagemagick"
 brew "jemalloc"

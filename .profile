@@ -48,3 +48,5 @@ function xzarchive() {
 }
 
 if which rbenv > /dev/null; then eval "$(rbenv init - --no-rehash)"; fi
+
+alias cici='goreman -f Procfile.test start'
