@@ -18,6 +18,8 @@
   default = current
 [apply]
   whitespace = warn
+[interactive]
+  diffFilter = delta --color-only --theme=OneHalfDark
 
 [alias]
   co = checkout
@@ -45,7 +47,7 @@
   tool = vimdiff
 [core]
   excludesfile = /Users/razorjack/.gitignore_global
-  pager = delta --dark
+  pager = delta --dark --theme=OneHalfDark
 
 [diff "localizablestrings"]
   textconv = "iconv -f utf-16 -t utf-8"
