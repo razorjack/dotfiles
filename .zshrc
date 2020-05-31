@@ -1,10 +1,7 @@
 fpath=($fpath $HOME/.zsh/functions $HOME/.zsh/completions)
 typeset -U fpath
 setopt promptsubst
-autoload -U promptinit
-promptinit
-prompt pure
-PURE_GIT_PULL=0
+eval "$(starship init zsh)"
 
 autoload -Uz compinit
 zstyle ':completion:*' menu select
