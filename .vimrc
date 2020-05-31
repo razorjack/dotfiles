@@ -41,6 +41,8 @@ else
   Plug 'roxma/vim-hug-neovim-rpc' " deoplete dependency
 endif
 
+Plug 'deoplete-plugins/deoplete-tag'
+
 if has('nvim')
   Plug 'bfredl/nvim-miniyank'
 endif
@@ -154,8 +156,6 @@ augroup vimrcEx
 augroup END
 
 let g:deoplete#enable_at_startup = 1
-let g:deoplete#sources = {}
-let g:deoplete#sources._ = ['buffer', 'tag']
 let g:deoplete#tag#cache_limit_size = 10000000
 
 let g:UltiSnipsExpandTrigger="<c-j>"
