@@ -94,7 +94,7 @@ set noswapfile
 set nobackup
 set nowb
 
-set fillchars+=vert:\ 
+set fillchars+=vert:\
 
 let g:ackprg = 'ag --vimgrep --smart-case'
 cnoreabbrev ag Ack
@@ -117,7 +117,7 @@ colorscheme codeschool
 " Cursor type setup
 let &t_SI = "\<Esc>]50;CursorShape=1\x7"    " Insert mode
 let &t_EI = "\<Esc>]50;CursorShape=0\x7"    " Command mode
-autocmd InsertEnter,InsertLeave * set cul!  " Highlight current line in insert mode 
+autocmd InsertEnter,InsertLeave * set cul!  " Highlight current line in insert mode
 
 " Use comma as a leader key
 let mapleader=","
