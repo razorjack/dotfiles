@@ -56,3 +56,4 @@ if which rbenv > /dev/null; then eval "$(rbenv init - --no-rehash)"; fi
 
 alias cici='goreman -f Procfile.test start'
 alias dot='(cd && nvim $(git ls-files | fzf))'
+alias gg=lazygit
