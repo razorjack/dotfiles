@@ -2,6 +2,11 @@ export HOMEBREW_INSTALL_BADGE="🔫  💪"
 export FZF_DEFAULT_COMMAND='
   (fd ||
    find * -name ".*" -prune -o -type f -print -o -type l -print) 2> /dev/null'
+export FZF_DEFAULT_OPTS=$FZF_DEFAULT_OPTS'
+--color=dark
+--color fg:-1,bg:-1,hl:39,fg+:3,bg+:234,hl+:229
+--color info:150,prompt:110,spinner:150,pointer:167,marker:174
+'
 
 export HISTCONTROL=ignoreboth:erasedups
 
