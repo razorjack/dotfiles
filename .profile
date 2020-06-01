@@ -1,6 +1,6 @@
 export HOMEBREW_INSTALL_BADGE="🔫  💪"
 export FZF_DEFAULT_COMMAND='
-  (ag -g "" ||
+  (fd ||
    find * -name ".*" -prune -o -type f -print -o -type l -print) 2> /dev/null'
 
 export HISTCONTROL=ignoreboth:erasedups
