@@ -205,3 +205,4 @@ if has('nvim')
   map p <Plug>(miniyank-autoput)
   map P <Plug>(miniyank-autoPut)
 endif
+let g:airline#extensions#disable_rtp_load = 1
