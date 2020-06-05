@@ -43,6 +43,7 @@ Sites/
 !.zsh
 !.zshenv
 !.zshrc
+!.p10k.zsh
 !.setup.sh
 !.config/fish/*
 !.config/bash/*
