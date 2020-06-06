@@ -94,6 +94,7 @@ brew "rust"
 brew "s3cmd"
 brew "ssh-copy-id", link: true
 brew "starship"
+brew "tealdeer"
 brew "the_silver_searcher"
 brew "tig"
 brew "tmux"
