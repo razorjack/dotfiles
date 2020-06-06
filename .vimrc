@@ -13,8 +13,6 @@ call plug#begin('~/.vim/plugged')
 Plug 'tpope/vim-fugitive' " Git
 Plug 'gorkunov/smartpairs.vim'
 Plug 'sheerun/vim-polyglot'
-Plug 'tpope/vim-bundler'
-Plug 'SirVer/ultisnips' | Plug 'honza/vim-snippets'
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-vinegar'
 Plug 'vim-scripts/gitignore'
