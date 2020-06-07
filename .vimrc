@@ -30,6 +30,7 @@ Plug 'vim-airline/vim-airline-themes'
 Plug 'rakr/vim-one'
 Plug 'benekastah/neomake'
 Plug 'junegunn/fzf'
+Plug 'rust-lang/rust.vim'
 
 if has('nvim')
   Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
@@ -204,3 +205,5 @@ if has('nvim')
   map P <Plug>(miniyank-autoPut)
 endif
 let g:airline#extensions#disable_rtp_load = 1
+
+let g:rustfmt_autosave = 1
