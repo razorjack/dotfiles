@@ -152,6 +152,5 @@ xcode-select --install
 
 rbenv install $(cat ~/.ruby-version)
 rbenv shell $(cat ~/.ruby-version)
-gem install bundler
 
 npm install --global pure-prompt
