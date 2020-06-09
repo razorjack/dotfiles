@@ -145,6 +145,9 @@ defaults write com.google.Chrome.canary AppleEnableMouseSwipeNavigateWithScrolls
 defaults write com.microsoft.VSCode ApplePressAndHoldEnabled -bool false         # For VS Code
 defaults write com.microsoft.VSCodeInsiders ApplePressAndHoldEnabled -bool false # For VS Code Insider
 
+# Disable window animations
+defaults write NSGlobalDomain NSAutomaticWindowAnimationsEnabled -bool NO
+
 xcode-select --install
 
 rbenv install $(cat ~/.ruby-version)
