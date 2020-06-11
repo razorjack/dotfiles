@@ -1,0 +1,7 @@
+#!/bin/bash
+
+echo "# logfilename          [owner:group]    mode count size when  flags [/pid_file] [sig_num]" > /etc/newsyslog.d/dev.conf
+
+locate "*Projects*log\/*.log" | while read -r logfile; do
+  printf "%s\t%s:staff\t644\t0\t*\t24\n" "$logfile" "$SUDO_USER" >> /etc/newsyslog.d/dev.conf
+done
