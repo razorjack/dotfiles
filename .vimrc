@@ -28,9 +28,9 @@ Plug 'bronson/vim-trailing-whitespace'
 Plug 'vim-airline/vim-airline'
 Plug 'vim-airline/vim-airline-themes'
 Plug 'rakr/vim-one'
-Plug 'benekastah/neomake'
 Plug 'junegunn/fzf'
 Plug 'rust-lang/rust.vim'
+Plug 'dense-analysis/ale'
 
 if has('nvim')
   Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
@@ -163,6 +163,9 @@ let g:UltiSnipsJumpBackwardTrigger="<c-k>"
 
 let g:vim_markdown_folding_disabled=1
 
+
+let g:ale_lint_on_text_changed = 0
+
 au VimResized * :wincmd = " Resize panes when terminal resizes
 au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g`\"" | endif " Split panes proportionally
 
@@ -185,10 +188,6 @@ xmap ga <Plug>(EasyAlign)
 
 " Start interactive EasyAlign for a motion/text object (e.g. gaip)
 nmap ga <Plug>(EasyAlign)
-
-autocmd! BufWritePost * Neomake
-let g:neomake_javascript_enabled_makers = ['eslint']
-let g:neomake_ruby_enabled_makers = ['mri', 'rubocop']
 
 " Neoterm
 nnoremap <silent> <leader><esc> :call neoterm#close()<cr>
