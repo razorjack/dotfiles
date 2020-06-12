@@ -157,6 +157,11 @@ augroup END
 let g:deoplete#enable_at_startup = 1
 let g:deoplete#tag#cache_limit_size = 10000000
 
+set omnifunc=ale#completion#OmniFunc
+let g:ale_linters = {
+\   'ruby': ['rubocop', 'ruby'],
+\}
+
 let g:UltiSnipsExpandTrigger="<c-j>"
 let g:UltiSnipsJumpForwardTrigger="<c-j>"
 let g:UltiSnipsJumpBackwardTrigger="<c-k>"
