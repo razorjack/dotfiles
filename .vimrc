@@ -111,6 +111,7 @@ let g:solarized_contrast = "high"
 set background=dark
 colorscheme codeschool
 let g:airline_theme='serene'
+let g:airline_powerline_fonts = 1
 
 " Cursor type setup
 let &t_SI = "\<Esc>]50;CursorShape=1\x7"    " Insert mode
