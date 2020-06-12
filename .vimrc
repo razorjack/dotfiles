@@ -181,11 +181,6 @@ xmap ga <Plug>(EasyAlign)
 " Start interactive EasyAlign for a motion/text object (e.g. gaip)
 nmap ga <Plug>(EasyAlign)
 
-" Neoterm
-nnoremap <silent> <leader><esc> :call neoterm#close()<cr>
-nnoremap <silent> <esc><esc> :call neoterm#close()<cr>
-let g:neoterm_size = 15
-
 " vim-test
 nmap <silent> <leader>r :TestNearest<CR>
 nmap <silent> <leader>R :TestFile<CR>
