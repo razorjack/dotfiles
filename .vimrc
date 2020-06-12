@@ -162,10 +162,6 @@ let g:ale_linters = {
 \   'ruby': ['rubocop', 'ruby'],
 \}
 
-let g:UltiSnipsExpandTrigger="<c-j>"
-let g:UltiSnipsJumpForwardTrigger="<c-j>"
-let g:UltiSnipsJumpBackwardTrigger="<c-k>"
-
 let g:vim_markdown_folding_disabled=1
 
 
