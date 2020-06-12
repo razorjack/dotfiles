@@ -181,11 +181,6 @@ xmap ga <Plug>(EasyAlign)
 " Start interactive EasyAlign for a motion/text object (e.g. gaip)
 nmap ga <Plug>(EasyAlign)
 
-" vim-test
-nmap <silent> <leader>r :TestNearest<CR>
-nmap <silent> <leader>R :TestFile<CR>
-let test#strategy = "neoterm"
-
 if has('nvim')
   map p <Plug>(miniyank-autoput)
   map P <Plug>(miniyank-autoPut)
