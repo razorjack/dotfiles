@@ -161,11 +161,10 @@ set omnifunc=ale#completion#OmniFunc
 let g:ale_linters = {
 \   'ruby': ['rubocop', 'ruby'],
 \}
+let g:ale_lint_on_text_changed = 0
+
 
 let g:vim_markdown_folding_disabled=1
-
-
-let g:ale_lint_on_text_changed = 0
 
 au VimResized * :wincmd = " Resize panes when terminal resizes
 au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g`\"" | endif " Split panes proportionally
