@@ -171,14 +171,6 @@ au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g
 
 map <Leader>t :FZF<CR>
 
-set statusline=
-set statusline +=%4*\ %<%f%*            "full path
-set statusline +=%3*\ %y%*                "file type
-set statusline +=%2*%m%*                "modified flag
-set statusline +=%1*%=%5l%*             "current line
-set statusline +=%2*/%L%*               "total lines
-set statusline +=%1*%4v\ %*             "virtual column number
-
 let g:ruby_path = system('echo $HOME/.rbenv/shims')
 
 :let $NVIM_TUI_ENABLE_CURSOR_SHAPE=1
