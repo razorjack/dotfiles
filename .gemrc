@@ -1,7 +1,1 @@
----
-:verbose: true
-:sources:
-- https://rubygems.org
-gem: --no-ri --no-rdoc
-:update_sources: true
-:backtrace: false
+gem: --no-document
