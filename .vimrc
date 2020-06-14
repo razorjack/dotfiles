@@ -100,7 +100,6 @@ nmap <C-Down> ddp
 vmap <C-Up> xkP`[V`]
 vmap <C-Down> xp`[V`]
 
-
 set background=dark
 colorscheme codeschool
 let g:airline_theme='serene'
