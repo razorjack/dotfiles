@@ -156,7 +156,6 @@ let g:ale_linters = {
 \}
 let g:ale_lint_on_text_changed = 0
 
-
 let g:vim_markdown_folding_disabled=1
 
 au VimResized * :wincmd = " Resize panes when terminal resizes
