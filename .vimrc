@@ -104,6 +104,7 @@ set background=dark
 colorscheme codeschool
 let g:airline_theme='serene'
 let g:airline_powerline_fonts = 1
+let g:airline#extensions#disable_rtp_load = 1
 
 " Cursor type setup
 let &t_SI = "\<Esc>]50;CursorShape=1\x7"    " Insert mode
@@ -177,6 +178,5 @@ if has('nvim')
   map p <Plug>(miniyank-autoput)
   map P <Plug>(miniyank-autoPut)
 endif
-let g:airline#extensions#disable_rtp_load = 1
 
 let g:rustfmt_autosave = 1
