@@ -140,11 +140,6 @@ augroup vimrcEx
   autocmd!
   " Vim is an awesome notepad!
   autocmd FileType text setlocal textwidth=100
-  " Jump to last cursor position unless it's invalid or in an event handler
-  autocmd BufReadPost *
-    \ if line("'\"") > 0 && line("'\"") <= line("$") |
-    \   exe "normal g`\"" |
-    \ endif
 augroup END
 
 let g:deoplete#enable_at_startup = 1
