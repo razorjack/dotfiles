@@ -168,12 +168,6 @@ let g:ruby_path = system('echo $HOME/.rbenv/shims')
 
 :let $NVIM_TUI_ENABLE_CURSOR_SHAPE=1
 
-" Start interactive EasyAlign in visual mode (e.g. vipga)
-xmap ga <Plug>(EasyAlign)
-
-" Start interactive EasyAlign for a motion/text object (e.g. gaip)
-nmap ga <Plug>(EasyAlign)
-
 if has('nvim')
   map p <Plug>(miniyank-autoput)
   map P <Plug>(miniyank-autoPut)
