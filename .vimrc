@@ -90,7 +90,7 @@ set nowb
 
 set fillchars+=vert:\|
 
-let g:ackprg = 'ag --vimgrep --smart-case'
+let g:ackprg = 'ag --vimgrep --smart-case --hidden'
 cnoreabbrev ag Ack
 
 " Bubble single lines
