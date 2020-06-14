@@ -88,7 +88,7 @@ set noswapfile
 set nobackup
 set nowb
 
-set fillchars+=vert:\
+set fillchars+=vert:\|
 
 let g:ackprg = 'ag --vimgrep --smart-case'
 cnoreabbrev ag Ack
