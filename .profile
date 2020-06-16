@@ -26,27 +26,27 @@ export DIRENV_LOG_FORMAT=''
 
 export RIPGREP_CONFIG_PATH=$HOME/.ripgreprc
 
-function xzarchive() {
+xzarchive() {
   archive_target=${1%/}
 
-  if [ -d $archive_target/log/ ]; then
-    :> $archive_target/log/*.log
+  if [ -d "$archive_target/log/" ]; then
+    :> "$archive_target/log/*.log"
   fi
 
-  if [ -d $archive_target/tmp/cache ]; then
-    rm -rf $archive_target/tmp/cache
+  if [ -d "$archive_target/tmp/cache" ]; then
+    rm -rf "$archive_target/tmp/cache"
   fi
 
-  if [ -d $archive_target/node_modules ]; then
-    rm -rf $archive_target/node_modules
+  if [ -d "$archive_target/node_modules" ]; then
+    rm -rf "$archive_target/node_modules"
   fi
 
-  if [ -d $archive_target/public/uploads ]; then
-    rm -rf $archive_target/public/uploads
+  if [ -d "$archive_target/public/uploads" ]; then
+    rm -rf "$archive_target/public/uploads"
   fi
 
-  if [ -d $archive_target/public/system ]; then
-    rm -rf $archive_target/public/system
+  if [ -d "$archive_target/public/system" ]; then
+    rm -rf "$archive_target/public/system"
   fi
 
   tar -c "$archive_target" | xz -3 --lzma2=preset=3,dict=512Mi --verbose > "$archive_target.tar.xz"
