@@ -30,6 +30,9 @@ Plug 'rakr/vim-one'
 Plug 'junegunn/fzf'
 Plug 'rust-lang/rust.vim'
 Plug 'dense-analysis/ale'
+Plug 'junegunn/goyo.vim'
+Plug 'junegunn/limelight.vim'
+Plug 'jxnblk/vim-mdx-js'
 
 if has('nvim')
   Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
@@ -141,6 +144,34 @@ augroup vimrcEx
   " Vim is an awesome notepad!
   autocmd FileType text setlocal textwidth=100
 augroup END
+
+autocmd FileType markdown :set wrap linebreak nolist
+function! s:goyo_enter()
+  if executable('tmux') && strlen($TMUX)
+    silent !tmux set status off
+    silent !tmux list-panes -F '\#F' | grep -q Z || tmux resize-pane -Z
+  endif
+  set noshowmode
+  set noshowcmd
+  set wrap linebreak nolist
+  " Limelight
+endfunction
+
+function! s:goyo_leave()
+  if executable('tmux') && strlen($TMUX)
+    silent !tmux set status on
+    silent !tmux list-panes -F '\#F' | grep -q Z && tmux resize-pane -Z
+  endif
+  set showmode
+  set showcmd
+  " Limelight!
+endfunction
+
+autocmd! User GoyoEnter nested call <SID>goyo_enter()
+autocmd! User GoyoLeave nested call <SID>goyo_leave()
+let g:limelight_conceal_ctermfg = 240
+
+let g:goyo_width = 100
 
 let g:deoplete#enable_at_startup = 1
 let g:deoplete#tag#cache_limit_size = 10000000
