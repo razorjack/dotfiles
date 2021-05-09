@@ -77,4 +77,7 @@
     "editor.formatOnSave": false,
     "python.pythonPath": "/usr/local/bin/python3",
     "window.closeWhenEmpty": true,
+    "workbench.colorTheme": "Visual Studio Dark",
+    "workbench.preferredDarkColorTheme": "GitHub Dark",
+    "workbench.preferredHighContrastColorTheme": "GitHub Dark",
 }
