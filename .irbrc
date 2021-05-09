@@ -26,3 +26,4 @@ IRB.conf[:PROMPT][:MY_PROMPT] = {
 }
 
 IRB.conf[:PROMPT_MODE] = :MY_PROMPT
+IRB.conf[:EVAL_HISTORY] = 5
