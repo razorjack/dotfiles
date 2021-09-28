@@ -5,6 +5,18 @@ if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 fi
 
+function set-title-precmd() {
+  printf "\e]2;%s\a" "${PWD/#$HOME/~}"
+}
+
+function set-title-preexec() {
+  printf "\e]2;%s\a" "$1"
+}
+
+autoload -Uz add-zsh-hook
+add-zsh-hook precmd set-title-precmd
+add-zsh-hook preexec set-title-preexec
+
 fpath=($fpath $HOME/.zsh/functions $HOME/.zsh/completions)
 typeset -U fpath
 setopt promptsubst
