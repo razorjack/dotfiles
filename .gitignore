@@ -52,5 +52,6 @@ Sites/
 !.config/jesseduffield/lazygit/config.yml
 !.config/bat/config
 !.config/ranger/*
+!.config/kitty/*
 !Library/Application Support/Code/User/settings.json
 !Library/Application Support/Code/User/keybindings.json
