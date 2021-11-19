@@ -281,11 +281,61 @@ cmp.setup({
 })
 
 -- Setup lspconfig.
+require'nvim-web-devicons'.setup {
+  override = {
+  };
+  default = true;
+}
+
+require "lsp_signature".setup()
+
+local nvim_lsp = require('lspconfig')
+local protocol = require'vim.lsp.protocol'
+
+local on_attach = function(client, bufnr)
+  local function buf_set_keymap(...) vim.api.nvim_buf_set_keymap(bufnr, ...) end
+  local function buf_set_option(...) vim.api.nvim_buf_set_option(bufnr, ...) end
+
+  buf_set_option('omnifunc', 'v:lua.vim.lsp.omnifunc')
+
+  local opts = { noremap=true, silent=true }
+
+  -- See `:help vim.lsp.*` for documentation on any of the below functions
+  buf_set_keymap('n', 'gD', '<Cmd>lua vim.lsp.buf.declaration()<CR>', opts)
+  buf_set_keymap('n', 'gd', '<Cmd>lua vim.lsp.buf.definition()<CR>', opts)
+  --buf_set_keymap('n', 'K', '<Cmd>lua vim.lsp.buf.hover()<CR>', opts)
+  buf_set_keymap('n', 'gi', '<cmd>lua vim.lsp.buf.implementation()<CR>', opts)
+  buf_set_keymap('n', 'gf', '<cmd>lua vim.lsp.buf.implementation()<CR>', opts)
+  --buf_set_keymap('i', '<C-k>', '<cmd>lua vim.lsp.buf.signature_help()<CR>', opts)
+  buf_set_keymap('n', '<space>wa', '<cmd>lua vim.lsp.buf.add_workspace_folder()<CR>', opts)
+  buf_set_keymap('n', '<space>wr', '<cmd>lua vim.lsp.buf.remove_workspace_folder()<CR>', opts)
+  buf_set_keymap('n', '<space>wl', '<cmd>lua print(vim.inspect(vim.lsp.buf.list_workspace_folders()))<CR>', opts)
+  buf_set_keymap('n', '<space>D', '<cmd>lua vim.lsp.buf.type_definition()<CR>', opts)
+  buf_set_keymap('n', '<space>rn', '<cmd>lua vim.lsp.buf.rename()<CR>', opts)
+  buf_set_keymap('n', '<space>ca', '<cmd>lua vim.lsp.buf.code_action()<CR>', opts)
+  -- buf_set_keymap('n', 'gr', '<cmd>lua vim.lsp.buf.references()<CR>', opts)
+  buf_set_keymap('n', '<space>e', '<cmd>lua vim.lsp.diagnostic.show_line_diagnostics()<CR>', opts)
+  --buf_set_keymap('n', '<C-j>', '<cmd>lua vim.lsp.diagnostic.goto_prev()<CR>', opts)
+  buf_set_keymap('n', '<S-C-j>', '<cmd>lua vim.lsp.diagnostic.goto_next()<CR>', opts)
+  buf_set_keymap('n', '<space>q', '<cmd>lua vim.lsp.diagnostic.set_loclist()<CR>', opts)
+  buf_set_keymap("n", "<space>f", "<cmd>lua vim.lsp.buf.formatting()<CR>", opts)
+
+  -- formatting
+  -- if client.resolved_capabilities.document_formatting then
+  --   vim.api.nvim_command [[augroup Format]]
+  --   vim.api.nvim_command [[autocmd! * <buffer>]]
+  --   vim.api.nvim_command [[autocmd BufWritePre <buffer> lua vim.lsp.buf.formatting_seq_sync()]]
+  --   vim.api.nvim_command [[augroup END]]
+  -- end
+end
+
 require('lspconfig')['tsserver'].setup {
+  on_attach = on_attach,
   capabilities = require('cmp_nvim_lsp').update_capabilities(vim.lsp.protocol.make_client_capabilities())
 }
 
 require'lspconfig'.solargraph.setup{
+  on_attach = on_attach,
   init_options = {
     formatting = true
   },
@@ -296,13 +346,6 @@ require'lspconfig'.solargraph.setup{
   }
 }
 
-require'nvim-web-devicons'.setup {
-  override = {
-  };
-  default = true;
-}
-
-require "lsp_signature".setup()
 
 require('vim.lsp.protocol').CompletionItemKind = {
     '', -- Text
@@ -336,10 +379,14 @@ EOF
 set completeopt=menu,menuone,noselect
 let g:material_style = 'darker'
 colorscheme material
-" nnoremap <buffer> <M-CR> :lua vim.lsp.buf.code_action()<CR>
-nnoremap <buffer> <M-CR> :CodeAction<CR>
+" nnoremap <buffer> <M-CR> :CodeAction<CR>
 let g:gitblame_enabled = 0
 
+" Wait for neovim 0.5.2 for fix
+nnoremap <buffer> <M-CR> :lua vim.lsp.buf.code_action()<CR>
 " nnoremap <silent><M-CR> :lua require('lspsaga.codeaction').code_action()<CR>
-" vnoremap <silent><M-CR> :<C-U>lua require('lspsaga.codeaction').range_code_action()<CR>
-set updatetime=1000
+" vnoremap <silent><M-CR> :lua require('lspsaga.codeaction').range_code_action()<CR>
+
+
+nnoremap <silent><F2> :lua require('lspsaga.rename').rename()<CR>
+set updatetime=1000 " Wait 1s to trigger cursor-hold event
