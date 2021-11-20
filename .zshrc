@@ -57,8 +57,9 @@ setopt HIST_SAVE_NO_DUPS         # Don't write duplicate entries in the history 
 setopt HIST_REDUCE_BLANKS        # Remove superfluous blanks before recording entry.
 setopt HIST_VERIFY               # Don't execute immediately upon history expansion.
 
-source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-source /usr/local//etc/profile.d/z.sh
+source $RZR_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+source $RZR_PREFIX/etc/profile.d/z.sh
+export ZSH_HIGHLIGHT_HIGHLIGHTERS_DIR=$RZR_PREFIX/share/zsh-syntax-highlighting/highlighters
 fpath=(/usr/local/share/zsh-completions $fpath)
 
 # Taken from https://github.com/bkzl/dotfiles/blob/master/zshrc
