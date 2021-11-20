@@ -47,6 +47,12 @@ defaults write com.apple.universalaccess HIDScrollZoomModifierMask -int 262144
 
 # Set a fast keyboard repeat rate
 defaults write NSGlobalDomain KeyRepeat -int 1
+defaults write NSGlobalDomain InitialKeyRepeat -int 15
+
+# Display the dock on the left side, autohide
+defaults write com.apple.dock "orientation" -string "left"
+defaults write com.apple.dock "autohide" -bool true
+killall Dock
 
 # Disable auto-correct
 # defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
