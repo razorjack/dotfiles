@@ -52,6 +52,8 @@ defaults write NSGlobalDomain InitialKeyRepeat -int 15
 # Display the dock on the left side, autohide
 defaults write com.apple.dock "orientation" -string "left"
 defaults write com.apple.dock "autohide" -bool true
+defaults write com.apple.dock "titlesize" -int 38
+defaults write com.apple.dock "largesize" -int 48
 killall Dock
 
 # Disable auto-correct
