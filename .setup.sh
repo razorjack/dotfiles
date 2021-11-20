@@ -153,8 +153,3 @@ defaults write com.microsoft.VSCodeInsiders ApplePressAndHoldEnabled -bool false
 
 # Disable window animations
 defaults write NSGlobalDomain NSAutomaticWindowAnimationsEnabled -bool NO
-
-xcode-select --install
-
-rbenv install $(cat ~/.ruby-version)
-rbenv shell $(cat ~/.ruby-version)
