@@ -99,3 +99,5 @@ source $RZR_PREFIX/opt/powerlevel10k/powerlevel10k.zsh-theme
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 export PATH="$RZR_PREFIX/opt/postgresql@12/bin:$PATH"
 export PATH="$RZR_PREFIX/opt/node@14/bin:$PATH"
+
+bindkey '^R' history-incremental-search-backward
