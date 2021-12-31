@@ -204,14 +204,16 @@ nnoremap <leader>t <cmd>Telescope find_files<cr>
 nnoremap <leader>f <cmd>Telescope live_grep<cr>
 nnoremap <leader>p <cmd>NvimTreeToggle<cr>
 
-let g:nvim_tree_ignore = [ '.git', 'node_modules', '.cache' ]
-let g:nvim_tree_gitignore = 1
-let g:nvim_tree_git_hl = 1
-let g:nvim_tree_highlight_opened_files = 1
 
 set termguicolors
 
 lua << EOF
+require'nvim-tree'.setup {
+  diagnostics = {
+    enable = true,
+  },
+}
+
 require('lualine').setup()
 require'nvim-treesitter.configs'.setup {
   ensure_installed = "maintained",
