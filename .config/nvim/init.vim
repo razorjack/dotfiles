@@ -15,6 +15,7 @@ call plug#begin('~/.vim/plugged')
 
 Plug 'kyazdani42/nvim-web-devicons'
 Plug 'nvim-lua/plenary.nvim'
+Plug 'catppuccin/nvim'
 
 Plug 'hrsh7th/vim-vsnip'
 Plug 'hrsh7th/vim-vsnip-integ'
