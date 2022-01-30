@@ -64,6 +64,8 @@ Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
 Plug 'deoplete-plugins/deoplete-tag'
 Plug 'bfredl/nvim-miniyank'
 
+Plug 'slim-template/vim-slim'
+
 
 call plug#end()
 
