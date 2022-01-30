@@ -230,19 +230,8 @@ require'nvim-treesitter.configs'.setup {
 require('nvim-tree').setup()
 require('gitsigns').setup()
 require('material').setup({
-	contrast = true,
-	popup_menu = "dark",
-
-	contrast_windows = {
-		"terminal",
-	},
-
-	text_contrast = {
-		darker = true
-	},
-
 	disable = {
-		background = false,
+		background = true,
 	},
 })
 
@@ -383,7 +372,8 @@ EOF
 
 set completeopt=menu,menuone,noselect
 let g:material_style = 'darker'
-colorscheme material
+" colorscheme material
+colorscheme github_dark_default
 " nnoremap <buffer> <M-CR> :CodeAction<CR>
 let g:gitblame_enabled = 0
 
