@@ -27,6 +27,7 @@ Plug 'projekt0n/github-nvim-theme'
 Plug 'marko-cerovac/material.nvim'
 Plug 'b3nj5m1n/kommentary'
 Plug 'RRethy/nvim-treesitter-textsubjects'
+Plug 'RRethy/nvim-treesitter-endwise'
 
 Plug 'neovim/nvim-lspconfig'
 Plug 'nvim-lua/lsp-status.nvim'
@@ -39,6 +40,7 @@ Plug 'f-person/git-blame.nvim'
 Plug 'glepnir/lspsaga.nvim'
 Plug 'weilbith/nvim-code-action-menu'
 Plug 'ray-x/lsp_signature.nvim'
+Plug 'lukas-reineke/indent-blankline.nvim'
 
 Plug 'hoob3rt/lualine.nvim'
 Plug 'kyazdani42/nvim-tree.lua'
@@ -47,7 +49,6 @@ Plug 'olimorris/onedark.nvim'
 Plug 'tpope/vim-fugitive' " Git
 Plug 'tpope/vim-surround'
 Plug 'tpope/vim-vinegar'
-Plug 'tpope/vim-endwise'
 Plug 'tpope/vim-eunuch'
 Plug 'plasticboy/vim-markdown', { 'for': 'markdown' }
 Plug 'vim-ruby/vim-ruby'
@@ -224,6 +225,9 @@ require'nvim-treesitter.configs'.setup {
     additional_vim_regex_highlighting = false,
   },
   indent = {
+    enable = true,
+  },
+  endwise = {
     enable = true,
   },
 }
