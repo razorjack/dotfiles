@@ -16,7 +16,7 @@ require 'irb/ext/save-history'
 IRB.conf[:SAVE_HISTORY] = 200000
 IRB.conf[:HISTORY_FILE] = "#{ENV['HOME']}/.irb-history"
 
-app_name = defined?(Rails) ? Rails.application.class.parent_name : File.basename(Dir.pwd)
+app_name = defined?(Rails) ? Rails.application.class.to_s.split("::").first : File.basename(Dir.pwd)
 
 IRB.conf[:PROMPT][:MY_PROMPT] = {
   :PROMPT_I => "#{app_name} (%m):%03n:%i> ",
