@@ -155,3 +155,7 @@ defaults write com.microsoft.VSCodeInsiders ApplePressAndHoldEnabled -bool false
 
 # Disable window animations
 defaults write NSGlobalDomain NSAutomaticWindowAnimationsEnabled -bool NO
+
+# Allow to inspect web views in native apps
+defaults write NSGlobalDomain WebKitDeveloperExtras -bool true
+defaults write -g WebKitDeveloperExtras -bool YES
