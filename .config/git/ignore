@@ -8,3 +8,4 @@ tags
 .autoenv.zsh
 .autoenv_leave.zsh
 Procfile.test
+public/system*

@@ -49,7 +49,6 @@
 [merge]
   tool = vimdiff
 [core]
-  excludesfile = /Users/razorjack/.gitignore_global
   pager = delta --dark
 
 [diff "localizablestrings"]

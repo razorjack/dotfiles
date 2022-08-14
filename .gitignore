@@ -54,5 +54,6 @@ Sites/
 !.config/ranger/*
 !.config/kitty/*
 !.config/nvim/init.vim
+!.config/git/*
 !Library/Application Support/Code/User/settings.json
 !Library/Application Support/Code/User/keybindings.json
