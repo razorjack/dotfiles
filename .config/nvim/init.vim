@@ -254,12 +254,6 @@ require('material').setup({
 	},
 })
 
-local saga = require 'lspsaga'
-saga.init_lsp_saga {
-  code_action_prompt = {
-    enable = false
-  }
-}
 require'nvim-treesitter.configs'.setup {
   textsubjects = {
   enable = true,
