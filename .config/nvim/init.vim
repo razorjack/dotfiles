@@ -245,7 +245,6 @@ require'nvim-treesitter.configs'.setup {
     enable = true,
   },
 }
-require('nvim-tree').setup()
 require('gitsigns').setup()
 require('material').setup({
 	disable = {
