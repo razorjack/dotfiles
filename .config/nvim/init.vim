@@ -23,6 +23,7 @@ Plug 'hrsh7th/vim-vsnip-integ'
 Plug 'lewis6991/gitsigns.nvim'
 Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
 Plug 'nvim-telescope/telescope.nvim'
+Plug 'nvim-telescope/telescope-fzf-native.nvim', { 'do': 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release && cmake --install build --prefix build' }
 Plug 'projekt0n/github-nvim-theme'
 Plug 'marko-cerovac/material.nvim'
 Plug 'b3nj5m1n/kommentary'
@@ -202,6 +203,20 @@ map p <Plug>(miniyank-autoput)
 map P <Plug>(miniyank-autoPut)
 
 let g:rustfmt_autosave = 1
+
+lua << EOF
+require('telescope').setup {
+  extensions = {
+    fzf = {
+      fuzzy = true,
+      override_generic_sorter = true,
+      override_file_sorter = true,
+      case_mode = "smart_case",
+    }
+  }
+}
+require('telescope').load_extension('fzf')
+EOF
 
 nnoremap <leader>t <cmd>Telescope find_files<cr>
 nnoremap <leader>f <cmd>Telescope live_grep<cr>
