@@ -384,8 +384,8 @@ EOF
 
 set completeopt=menu,menuone,noselect
 let g:material_style = 'darker'
-" colorscheme material
-colorscheme github_dark_default
+colorscheme material
+" colorscheme github_dark_default
 " nnoremap <buffer> <M-CR> :CodeAction<CR>
 let g:gitblame_enabled = 0
 
