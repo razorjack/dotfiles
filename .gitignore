@@ -55,5 +55,6 @@ Sites/
 !.config/kitty/*
 !.config/nvim/init.vim
 !.config/git/*
+!.rgignore
 !Library/Application Support/Code/User/settings.json
 !Library/Application Support/Code/User/keybindings.json
