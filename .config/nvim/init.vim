@@ -64,7 +64,6 @@ Plug 'jxnblk/vim-mdx-js'
 
 Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
 Plug 'deoplete-plugins/deoplete-tag'
-Plug 'bfredl/nvim-miniyank'
 
 Plug 'slim-template/vim-slim'
 
@@ -199,8 +198,8 @@ let g:ruby_path = system('echo $HOME/.rbenv/shims')
 
 :let $NVIM_TUI_ENABLE_CURSOR_SHAPE=1
 
-map p <Plug>(miniyank-autoput)
-map P <Plug>(miniyank-autoPut)
+" Copy full line with Y
+nnoremap Y yy
 
 let g:rustfmt_autosave = 1
 
