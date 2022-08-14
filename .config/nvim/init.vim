@@ -49,7 +49,6 @@ Plug 'olimorris/onedark.nvim'
 
 Plug 'tpope/vim-fugitive' " Git
 Plug 'tpope/vim-surround'
-Plug 'tpope/vim-vinegar'
 Plug 'tpope/vim-eunuch'
 Plug 'plasticboy/vim-markdown', { 'for': 'markdown' }
 Plug 'vim-ruby/vim-ruby'
@@ -220,7 +219,7 @@ EOF
 nnoremap <leader>t <cmd>Telescope find_files<cr>
 nnoremap <leader>f <cmd>Telescope live_grep<cr>
 nnoremap <leader>p <cmd>NvimTreeToggle<cr>
-
+nnoremap - <cmd>NvimTreeToggle<cr>
 
 set termguicolors
 
