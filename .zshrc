@@ -103,3 +103,4 @@ export PATH="$RZR_PREFIX/opt/node@14/bin:$PATH"
 bindkey '^R' history-incremental-search-backward
 export PATH="/opt/homebrew/opt/node@16/bin:$PATH"
 export PATH="/opt/homebrew/opt/mongodb-community@4.2/bin:$PATH"
+export PATH="/opt/homebrew/bin:$PATH"
