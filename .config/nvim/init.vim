@@ -228,6 +228,9 @@ require'nvim-tree'.setup {
   diagnostics = {
     enable = true,
   },
+  filters = {
+    exclude = { "config/application.yml", "config/database.yml" },
+  }
 }
 
 require('lualine').setup()
