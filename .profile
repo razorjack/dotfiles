@@ -52,6 +52,16 @@ xzarchive() {
   tar -c "$archive_target" | xz -3 --lzma2=preset=3,dict=512Mi --verbose > "$archive_target.tar.xz"
 }
 
+tmsetup() {
+  sudo tmutil addexclusion -p ~/Downloads
+  sudo tmutil addexclusion -p ~/.rbenv
+  sudo tmutil addexclusion -p ~/.npm
+  # Exclude logs
+  fd --no-ignore-vcs --exclude node_modules --exclude public/system --exclude public/uploads --exclude tmp -p -g "**/log/*.log" ~/Projects -x sudo tmutil addexclusion -p
+  # Exclude tmp directories of Rails projects
+  fd --no-ignore-vcs --exclude public/system --exclude public/uploads -p -g "**/*/tmp" ~/Projects -x sudo tmutil addexclusion -p
+}
+
 if which rbenv > /dev/null; then eval "$(rbenv init - --no-rehash)"; fi
 
 alias cici='goreman -f Procfile.test start'
