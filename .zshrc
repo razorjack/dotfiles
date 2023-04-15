@@ -92,15 +92,13 @@ bindkey '^e' edit-command-line
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
 export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
-export PATH="$RZR_PREFIX/opt/mongodb-community@3.2/bin:$PATH"
 source $RZR_PREFIX/opt/powerlevel10k/powerlevel10k.zsh-theme
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-export PATH="$RZR_PREFIX/opt/postgresql@12/bin:$PATH"
-export PATH="$RZR_PREFIX/opt/node@14/bin:$PATH"
-
 bindkey '^R' history-incremental-search-backward
-export PATH="/opt/homebrew/opt/node@16/bin:$PATH"
 export PATH="/opt/homebrew/opt/mongodb-community@4.2/bin:$PATH"
 export PATH="/opt/homebrew/bin:$PATH"
+export PATH="/opt/homebrew/opt/node@18/bin:$PATH"
+export LDFLAGS="-L/opt/homebrew/opt/node@18/lib"
+export CPPFLAGS="-I/opt/homebrew/opt/node@18/include"
