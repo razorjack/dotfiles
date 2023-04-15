@@ -5,6 +5,10 @@ class Object
   def local_methods(obj = self)
     (obj.methods - obj.class.superclass.instance_methods).sort
   end
+
+  def me!
+    User.find_by(email: `git config user.email`.strip)
+  end
 end
 
 begin
