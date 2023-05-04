@@ -233,7 +233,11 @@ require'nvim-tree'.setup {
   }
 }
 
-require('lualine').setup()
+require('lualine').setup {
+  options = {
+    theme = 'onedark'
+  }
+}
 require'nvim-treesitter.configs'.setup {
   ensure_installed = all,
   highlight = {
