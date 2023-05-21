@@ -32,7 +32,9 @@ Plug 'RRethy/nvim-treesitter-endwise'
 
 Plug 'neovim/nvim-lspconfig'
 Plug 'nvim-lua/lsp-status.nvim'
-Plug 'williamboman/nvim-lsp-installer'
+Plug 'williamboman/mason.nvim', { 'do': ':MasonUpdate' }
+Plug 'williamboman/mason-lspconfig.nvim'
+Plug 'jose-elias-alvarez/null-ls.nvim'
 Plug 'hrsh7th/cmp-nvim-lsp'
 Plug 'hrsh7th/cmp-buffer'
 Plug 'hrsh7th/nvim-cmp'
@@ -66,6 +68,8 @@ Plug 'deoplete-plugins/deoplete-tag'
 
 Plug 'slim-template/vim-slim'
 
+Plug 'SmiteshP/nvim-navic',
+Plug 'utilyre/barbecue.nvim'
 
 call plug#end()
 
@@ -203,6 +207,8 @@ nnoremap Y yy
 let g:rustfmt_autosave = 1
 
 lua << EOF
+require("mason").setup()
+
 require('telescope').setup {
   extensions = {
     fzf = {
@@ -357,7 +363,6 @@ require'lspconfig'.solargraph.setup{
   }
 }
 
-
 require('vim.lsp.protocol').CompletionItemKind = {
     '', -- Text
     '', -- Method
@@ -385,6 +390,8 @@ require('vim.lsp.protocol').CompletionItemKind = {
     'ﬦ', -- Operator
     '', -- TypeParameter
 }
+
+require("barbecue").setup();
 EOF
 
 set completeopt=menu,menuone,noselect
