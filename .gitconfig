@@ -46,6 +46,7 @@
   wip = for-each-ref --sort='authordate:iso8601' --format=' %(color:green)%(authordate:relative)%09%(color:white)%(refname:short)' refs/heads
   sw = !git checkout $(git branch -a --format '%(refname:short)' | sed 's~origin/~~' | sort | uniq | fzf)
   cleanup = "!git branch --merged | grep  -v '\\*\\|master\\|main' | xargs -n 1 git branch -d"
+  rubocop = "!git diff --name-only --diff-filter=d master... | xargs bundle exec rubocop \"$@\""
 [merge]
   tool = vimdiff
 [core]
