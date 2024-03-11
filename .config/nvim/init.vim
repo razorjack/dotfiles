@@ -20,6 +20,8 @@ Plug 'catppuccin/nvim'
 Plug 'hrsh7th/vim-vsnip'
 Plug 'hrsh7th/vim-vsnip-integ'
 
+Plug 'navarasu/onedark.nvim'
+
 Plug 'lewis6991/gitsigns.nvim'
 Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
 Plug 'nvim-telescope/telescope.nvim'
@@ -47,7 +49,6 @@ Plug 'lukas-reineke/indent-blankline.nvim'
 
 Plug 'hoob3rt/lualine.nvim'
 Plug 'kyazdani42/nvim-tree.lua'
-Plug 'olimorris/onedark.nvim'
 
 Plug 'tpope/vim-fugitive' " Git
 Plug 'tpope/vim-surround'
@@ -392,11 +393,18 @@ require('vim.lsp.protocol').CompletionItemKind = {
 }
 
 require("barbecue").setup();
+
+require('onedark').setup {
+    style = 'warmer',
+    transparent = true,
+}
+require('onedark').load()
+
 EOF
 
 set completeopt=menu,menuone,noselect
 let g:material_style = 'darker'
-colorscheme material
+" colorscheme material
 " colorscheme github_dark_default
 " nnoremap <buffer> <M-CR> :CodeAction<CR>
 let g:gitblame_enabled = 0
