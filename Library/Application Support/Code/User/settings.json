@@ -8,7 +8,6 @@
     "vim.leader": ",",
     "vim.useSystemClipboard": true,
     "vim.disableAnnoyingNeovimMessage": true,
-    "workbench.activityBar.visible": false,
     "files.exclude": {
         "**/.git": true,
         "**/.svn": true,
@@ -79,5 +78,5 @@
     "window.closeWhenEmpty": true,
     "workbench.preferredDarkColorTheme": "GitHub Dark",
     "workbench.preferredHighContrastColorTheme": "GitHub Dark",
-    "workbench.colorTheme": "Default Dark+",
+    "workbench.activityBar.location": "hidden",
 }
