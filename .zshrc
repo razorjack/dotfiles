@@ -99,9 +99,12 @@ source $RZR_PREFIX/share/powerlevel10k/powerlevel10k.zsh-theme
 bindkey '^R' history-incremental-search-backward
 export PATH="/opt/homebrew/opt/mongodb-community@4.2/bin:$PATH"
 export PATH="/opt/homebrew/bin:$PATH"
-export PATH="/opt/homebrew/opt/node@18/bin:$PATH"
-export LDFLAGS="-L/opt/homebrew/opt/node@18/lib"
-export CPPFLAGS="-I/opt/homebrew/opt/node@18/include"
-export PATH="/opt/homebrew/opt/postgresql@15/bin:$PATH"
-export LDFLAGS="-L/opt/homebrew/opt/postgresql@15/lib"
-export CPPFLAGS="-I/opt/homebrew/opt/postgresql@15/include"
+export PATH="/opt/homebrew/opt/node@20/bin:$PATH"
+export PATH="/Users/razorjack/.local/bin:$PATH"
+export LDFLAGS="-L/opt/homebrew/opt/node@20/lib"
+export CPPFLAGS="-I/opt/homebrew/opt/node@20/include"
+export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
+export LDFLAGS="-L/opt/homebrew/opt/postgresql@16/lib"
+export CPPFLAGS="-I/opt/homebrew/opt/postgresql@16/include"
+export PKG_CONFIG_PATH="/opt/homebrew/opt/postgresql@16/lib/pkgconfig"
+if [ -f "/Users/razorjack/.config/fabric/fabric-bootstrap.inc" ]; then . "/Users/razorjack/.config/fabric/fabric-bootstrap.inc"; fi
