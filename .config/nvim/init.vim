@@ -347,7 +347,7 @@ local on_attach = function(client, bufnr)
   -- end
 end
 
-require('lspconfig')['tsserver'].setup {
+require('lspconfig')['ts_ls'].setup {
   on_attach = on_attach,
   capabilities = require('cmp_nvim_lsp').default_capabilities(vim.lsp.protocol.make_client_capabilities())
 }
