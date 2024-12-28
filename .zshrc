@@ -108,3 +108,13 @@ export LDFLAGS="-L/opt/homebrew/opt/postgresql@16/lib"
 export CPPFLAGS="-I/opt/homebrew/opt/postgresql@16/include"
 export PKG_CONFIG_PATH="/opt/homebrew/opt/postgresql@16/lib/pkgconfig"
 if [ -f "/Users/razorjack/.config/fabric/fabric-bootstrap.inc" ]; then . "/Users/razorjack/.config/fabric/fabric-bootstrap.inc"; fi
+
+# Golang environment variables
+export GOROOT=$(brew --prefix go)/libexec
+export GOPATH=$HOME/go
+export PATH=$GOPATH/bin:$GOROOT/bin:$HOME/.local/bin:$PATH
+
+yt() {
+    local video_link="$1"
+    fabric -y "$video_link" --transcript
+}
