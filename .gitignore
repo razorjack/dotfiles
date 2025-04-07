@@ -27,7 +27,7 @@ Sites/
 !.gitmodules
 !.gvimrc
 !.ideavimrc
-!.powconfig
+!.pumaenv
 !.profile
 !.railsrc
 !.tmux.conf
