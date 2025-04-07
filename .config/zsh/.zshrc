@@ -95,14 +95,14 @@ export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
 source $RZR_PREFIX/share/powerlevel10k/powerlevel10k.zsh-theme
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+[[ ! -f ~/.p10k.zsh ]] || source ~/.config/zsh/p10k.zsh
 bindkey '^R' history-incremental-search-backward
 export PATH="/opt/homebrew/opt/mongodb-community@4.2/bin:$PATH"
 export PATH="/opt/homebrew/bin:$PATH"
-export PATH="/opt/homebrew/opt/node@20/bin:$PATH"
+export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
 export PATH="/Users/razorjack/.local/bin:$PATH"
-export LDFLAGS="-L/opt/homebrew/opt/node@20/lib"
-export CPPFLAGS="-I/opt/homebrew/opt/node@20/include"
+export LDFLAGS="-L/opt/homebrew/opt/node@2w/lib"
+export CPPFLAGS="-I/opt/homebrew/opt/node@2w/include"
 export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
 export LDFLAGS="-L/opt/homebrew/opt/postgresql@16/lib"
 export CPPFLAGS="-I/opt/homebrew/opt/postgresql@16/include"

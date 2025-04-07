@@ -1,3 +1,8 @@
-[[ -s "$HOME/.customenv" ]] && source "$HOME/.customenv"
-source ~/.profile
-if [ -e /Users/razorjack/.nix-profile/etc/profile.d/nix.sh ]; then . /Users/razorjack/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
+export ZDOTDIR=~/.config/zsh
+source $ZDOTDIR/.zshenv
+
+export RIPGREP_CONFIG_PATH=~/.config/ripgrep/config
+export AG_CONFIG_PATH=~/.config/ag/ignore
+export ZDOTDIR=~/.config/zsh
+export ACKRC=~/.config/ack/ackrc
+export PSQLRC=~/.config/psql/psqlrc
