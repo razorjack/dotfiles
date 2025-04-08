@@ -1,80 +1,105 @@
-local plug_path = vim.fn.stdpath('config') .. '/autoload/plug.vim'
-if vim.fn.empty(vim.fn.glob(plug_path)) > 0 then
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if not vim.loop.fs_stat(lazypath) then
   vim.fn.system({
-    'curl', '-fLo', plug_path, '--create-dirs',
-    'https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim'
-  })
-  vim.api.nvim_create_autocmd('VimEnter', {
-    callback = function()
-      vim.cmd('PlugInstall | nested source $MYVIMRC')
-    end
+    "git",
+    "clone",
+    "--filter=blob:none",
+    "https://github.com/folke/lazy.nvim.git",
+    "--branch=stable", -- latest stable release
+    lazypath,
   })
 end
+vim.opt.rtp:prepend(lazypath)
 
-vim.cmd([[
-call plug#begin('~/.vim/plugged')
+require("lazy").setup({
+  -- UI
+  "kyazdani42/nvim-web-devicons",
+  "nvim-lua/plenary.nvim",
+  "catppuccin/nvim",
 
-Plug 'kyazdani42/nvim-web-devicons'
-Plug 'nvim-lua/plenary.nvim'
-Plug 'catppuccin/nvim'
+  -- Snippets
+  "hrsh7th/vim-vsnip",
+  "hrsh7th/vim-vsnip-integ",
 
-Plug 'hrsh7th/vim-vsnip'
-Plug 'hrsh7th/vim-vsnip-integ'
+  -- Themes
+  "navarasu/onedark.nvim",
+  "projekt0n/github-nvim-theme",
+  "marko-cerovac/material.nvim",
 
-Plug 'navarasu/onedark.nvim'
+  -- Git
+  "lewis6991/gitsigns.nvim",
+  "tpope/vim-fugitive",
+  "f-person/git-blame.nvim",
 
-Plug 'lewis6991/gitsigns.nvim'
-Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
-Plug 'nvim-telescope/telescope.nvim'
-Plug 'nvim-telescope/telescope-fzf-native.nvim', { 'do': 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release && cmake --install build --prefix build' }
-Plug 'projekt0n/github-nvim-theme'
-Plug 'marko-cerovac/material.nvim'
-Plug 'b3nj5m1n/kommentary'
-Plug 'RRethy/nvim-treesitter-textsubjects'
-Plug 'RRethy/nvim-treesitter-endwise'
+  -- Syntax and Language
+  {
+    "nvim-treesitter/nvim-treesitter",
+    build = ":TSUpdate"
+  },
+  "RRethy/nvim-treesitter-textsubjects",
+  "RRethy/nvim-treesitter-endwise",
+  "b3nj5m1n/kommentary",
 
-Plug 'neovim/nvim-lspconfig'
-Plug 'nvim-lua/lsp-status.nvim'
-Plug 'williamboman/mason.nvim', { 'do': ':MasonUpdate' }
-Plug 'williamboman/mason-lspconfig.nvim'
-Plug 'jose-elias-alvarez/null-ls.nvim'
-Plug 'hrsh7th/cmp-nvim-lsp'
-Plug 'hrsh7th/cmp-buffer'
-Plug 'hrsh7th/nvim-cmp'
-Plug 'hrsh7th/cmp-vsnip'
-Plug 'f-person/git-blame.nvim'
-Plug 'glepnir/lspsaga.nvim'
-Plug 'weilbith/nvim-code-action-menu'
-Plug 'ray-x/lsp_signature.nvim'
-Plug 'lukas-reineke/indent-blankline.nvim'
+  -- Telescope and FZF
+  "nvim-telescope/telescope.nvim",
+  {
+    "nvim-telescope/telescope-fzf-native.nvim",
+    build = "cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release && cmake --install build --prefix build" 
+  },
 
-Plug 'hoob3rt/lualine.nvim'
-Plug 'kyazdani42/nvim-tree.lua'
+  -- LSP and Completion
+  "neovim/nvim-lspconfig",
+  "nvim-lua/lsp-status.nvim",
+  { 
+    "williamboman/mason.nvim",
+    build = ":MasonUpdate"
+  },
+  "williamboman/mason-lspconfig.nvim",
+  "jose-elias-alvarez/null-ls.nvim",
+  "hrsh7th/cmp-nvim-lsp",
+  "hrsh7th/cmp-buffer",
+  "hrsh7th/nvim-cmp",
+  "hrsh7th/cmp-vsnip",
+  "glepnir/lspsaga.nvim",
+  "weilbith/nvim-code-action-menu",
+  "ray-x/lsp_signature.nvim",
+  "lukas-reineke/indent-blankline.nvim",
 
-Plug 'tpope/vim-fugitive'
-Plug 'tpope/vim-surround'
-Plug 'tpope/vim-eunuch'
-Plug 'plasticboy/vim-markdown', { 'for': 'markdown' }
-Plug 'vim-ruby/vim-ruby'
-Plug 'tpope/vim-rails'
-Plug 'mileszs/ack.vim'
-Plug 'christoomey/vim-tmux-navigator'
-Plug 'bronson/vim-trailing-whitespace'
-Plug 'rust-lang/rust.vim'
-Plug 'junegunn/goyo.vim'
-Plug 'junegunn/limelight.vim'
-Plug 'jxnblk/vim-mdx-js'
+  -- UI Components
+  "hoob3rt/lualine.nvim",
+  "kyazdani42/nvim-tree.lua",
 
-Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
-Plug 'deoplete-plugins/deoplete-tag'
 
-Plug 'slim-template/vim-slim'
+  -- Markdown and Text
+  { "plasticboy/vim-markdown", ft = "markdown" },
+  "junegunn/goyo.vim",
+  "junegunn/limelight.vim",
+  "jxnblk/vim-mdx-js",
 
-Plug 'SmiteshP/nvim-navic',
-Plug 'utilyre/barbecue.nvim'
+  -- Ruby
+  "vim-ruby/vim-ruby",
+  "tpope/vim-rails",
 
-call plug#end()
-]])
+  -- Misc
+  "tpope/vim-surround",
+  "tpope/vim-eunuch",
+  "mileszs/ack.vim",
+  "christoomey/vim-tmux-navigator",
+  "bronson/vim-trailing-whitespace",
+  "rust-lang/rust.vim",
+  "slim-template/vim-slim",
+
+  -- Deprecated but keeping for now (to be migrated later)
+  {
+    "Shougo/deoplete.nvim",
+    build = ":UpdateRemotePlugins"
+  },
+  "deoplete-plugins/deoplete-tag",
+
+  -- Navigation
+  "SmiteshP/nvim-navic",
+  "utilyre/barbecue.nvim",
+})
 
 vim.cmd('syntax enable')
 
