@@ -2,8 +2,8 @@ set nocompatible              " be iMproved, required
 filetype off                  " required
 
 " vim-plug autoconfig if not already installed
-if empty(glob('~/.config/nvim/autoload/plug.vim'))
-  silent !curl -fLo ~/.config/nvim/autoload/plug.vim --create-dirs
+if empty(glob('~/.config/vim/autoload/plug.vim'))
+  silent !curl -fLo ~/.config/vim/autoload/plug.vim --create-dirs
     \ https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
   autocmd VimEnter * PlugInstall | nested source $MYVIMRC
 endif
@@ -33,20 +33,8 @@ Plug 'dense-analysis/ale'
 Plug 'junegunn/goyo.vim'
 Plug 'junegunn/limelight.vim'
 Plug 'jxnblk/vim-mdx-js'
-
-if has('nvim')
-  Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
-else
-  Plug 'Shougo/deoplete.nvim'
-  Plug 'roxma/nvim-yarp' " deoplete dependency
-  Plug 'roxma/vim-hug-neovim-rpc' " deoplete dependency
-endif
-
-Plug 'deoplete-plugins/deoplete-tag'
-
-if has('nvim')
-  Plug 'bfredl/nvim-miniyank'
-endif
+Plug 'roxma/nvim-yarp' " deoplete dependency
+Plug 'roxma/vim-hug-neovim-rpc' " deoplete dependency
 
 call plug#end()
 

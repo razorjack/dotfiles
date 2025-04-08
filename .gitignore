@@ -12,7 +12,7 @@ Pictures/
 Projects/
 Public/
 Sites/
-.vim/plugged
+.config/vim/plugged
 *
 !.bash_profile
 !.bashrc
@@ -29,8 +29,6 @@ Sites/
 !.profile
 !.railsrc
 !.tmux.conf
-!.vim
-!.vim/bundle/Vundle.vim
 !.zlogin
 !.zsh
 !.zshenv
