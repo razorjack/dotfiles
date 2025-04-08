@@ -25,15 +25,12 @@ Sites/
 !.gitignore
 !.gitignore_global
 !.gitmodules
-!.gvimrc
-!.ideavimrc
 !.pumaenv
 !.profile
 !.railsrc
 !.tmux.conf
 !.vim
 !.vim/bundle/Vundle.vim
-!.vimrc
 !.zlogin
 !.zsh
 !.zshenv
@@ -57,6 +54,7 @@ Sites/
 !.config/pg/*
 !.config/nvim/init.lua
 !.config/git/*
+!.config/vim/vimrc
 !.rgignore
 !Library/Application Support/Code/User/settings.json
 !Library/Application Support/Code/User/keybindings.json
