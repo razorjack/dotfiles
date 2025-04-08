@@ -55,7 +55,7 @@ Sites/
 !.config/kitty/*
 !.config/pry/*
 !.config/pg/*
-!.config/nvim/init.vim
+!.config/nvim/init.lua
 !.config/git/*
 !.rgignore
 !Library/Application Support/Code/User/settings.json
