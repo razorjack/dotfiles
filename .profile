@@ -24,8 +24,6 @@ export LANG=en_US.UTF-8
 export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/usr/local/sbin:~/bin:$PATH
 export DIRENV_LOG_FORMAT=''
 
-export RIPGREP_CONFIG_PATH=$HOME/.ripgreprc
-
 xzarchive() {
   archive_target=${1%/}
 
