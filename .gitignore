@@ -33,7 +33,6 @@ Sites/
 !.zsh
 !.zshenv
 !.zshrc
-!.p10k.zsh
 !.setup.sh
 !.config/fish/*
 !.config/bash/*
@@ -52,6 +51,9 @@ Sites/
 !.config/kitty/*
 !.config/pry/*
 !.config/pg/*
+!.config/zsh/.zshrc
+!.config/zsh/.zshenv
+!.config/zsh/.zlogin
 !.config/nvim/init.lua
 !.config/git/*
 !.config/vim/vimrc
