@@ -34,7 +34,14 @@ require("lazy").setup({
   -- Syntax and Language
   {
     "nvim-treesitter/nvim-treesitter",
-    build = ":TSUpdate"
+    build = ":TSUpdate",
+    config = function()
+      local ts_query = vim.treesitter and vim.treesitter.query or require("vim.treesitter.query")
+      ts_query.add_predicate("is-mise?", function(match, pattern, bufnr, pred)
+        local filepath = vim.api.nvim_buf_get_name(tonumber(bufnr) or 0)
+        return string.find(filepath, "mise") ~= nil and string.find(filepath, "%.toml$") ~= nil
+      end, { force = true })
+    end
   },
   "RRethy/nvim-treesitter-textsubjects",
   "RRethy/nvim-treesitter-endwise",
