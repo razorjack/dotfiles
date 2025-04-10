@@ -61,9 +61,10 @@ tmsetup() {
 }
 
 dbdump() {
-  mkdir -p ~/.dbbackups
-  mongodump --archive --quiet | zstd -17 -T4 | tee ~/.dbbackups/mongo-$(date -u +%Y-W%W).zst ~/.dbbackups/mongo-$(date -u +%w).zst > /dev/null
-  pg_dumpall | zstd -17 -T4 | tee ~/.dbbackups/postgres-$(date -u +%Y-W%W).zst ~/.dbbackups/postgres-$(date -u +%w).zst > /dev/null
+  local backup_dir="${XDG_DATA_HOME:-$HOME/.local/share}/dbbackups"
+  mkdir -p "$backup_dir"
+  mongodump --archive --quiet | zstd -14 -T8 --long=31 | tee "$backup_dir/mongo-$(date -u +%Y-W%W).zst" "$backup_dir/mongo-$(date -u +%w).zst" > /dev/null
+  pg_dumpall | zstd -14 -T8 --long=31 | tee "$backup_dir/postgres-$(date -u +%Y-W%W).zst" "$backup_dir/postgres-$(date -u +%w).zst" > /dev/null
 }
 
 if which rbenv > /dev/null; then eval "$(rbenv init - --no-rehash)"; fi
