@@ -47,6 +47,7 @@ Sites/
 !.config/jesseduffield/lazygit/config.yml
 !.config/ranger/*
 !.config/ripgrep/config
+!.config/ripgrep/ignore
 !.config/kitty/*
 !.config/pry/*
 !.config/pg/*
