@@ -48,6 +48,7 @@ Sites/
 !.config/ranger/*
 !.config/ripgrep/config
 !.config/ripgrep/ignore
+!.config/gem/gemrc
 !.config/kitty/*
 !.config/pry/*
 !.config/pg/*
