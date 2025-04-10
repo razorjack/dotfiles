@@ -53,6 +53,8 @@ Sites/
 !.config/nvim/init.lua
 !.config/git/*
 !.config/vim/vimrc
+!.config/readline/inputrc
+!.config/rails/railsrc
 !.rgignore
 !Library/Application Support/Code/User/settings.json
 !Library/Application Support/Code/User/keybindings.json
