@@ -16,7 +16,6 @@ Sites/
 *
 !.bash_profile
 !.bashrc
-!Brewfile
 !.ctags
 !.gemrc
 !.gitattributes
@@ -61,6 +60,7 @@ Sites/
 !.config/rails/railsrc
 !.config/git/attributes
 !.config/git/config
+!.config/razorjack/Brewfile
 !.rgignore
 !Library/Application Support/Code/User/settings.json
 !Library/Application Support/Code/User/keybindings.json
