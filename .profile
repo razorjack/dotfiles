@@ -67,7 +67,8 @@ dbdump() {
   pg_dumpall | zstd -14 -T8 --long=31 | tee "$backup_dir/postgres-$(date -u +%Y-W%W).zst" "$backup_dir/postgres-$(date -u +%w).zst" > /dev/null
 }
 
-if which rbenv > /dev/null; then eval "$(rbenv init - --no-rehash)"; fi
+command -v rbenv >/dev/null && eval "$(rbenv init - --no-rehash)"
+command -v mise >/dev/null && eval "$(mise activate --shims)"
 
 alias cici='goreman -f Procfile.test start'
 alias dot='(cd && nvim $(git ls-files | fzf))'
