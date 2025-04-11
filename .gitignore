@@ -60,6 +60,7 @@ Sites/
 !.config/rails/railsrc
 !.config/git/attributes
 !.config/git/config
+!.config/ctags/default.ctags
 !.config/bundle/config
 !.config/razorjack/Brewfile
 !.rgignore
