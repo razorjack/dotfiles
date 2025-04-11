@@ -59,6 +59,8 @@ Sites/
 !.config/vim/vimrc
 !.config/readline/inputrc
 !.config/rails/railsrc
+!.config/git/attributes
+!.config/git/config
 !.rgignore
 !Library/Application Support/Code/User/settings.json
 !Library/Application Support/Code/User/keybindings.json
