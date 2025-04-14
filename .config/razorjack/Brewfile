@@ -40,7 +40,6 @@ brew "cloc"
 brew "cloudflared"
 brew "cmake"
 brew "cscope"
-brew "ctags"
 brew "direnv"
 brew "dnscrypt-proxy"
 brew "dog"
@@ -108,6 +107,7 @@ brew "luajit-openresty"
 brew "luv"
 brew "mas"
 brew "memcached", restart_service: :changed
+brew "mise"
 brew "msgpack"
 brew "neofetch"
 brew "tree-sitter"
@@ -115,7 +115,7 @@ brew "neovim"
 brew "nmap"
 brew "node@18"
 brew "node@20"
-brew "nvm"
+brew "node@22"
 brew "openjdk@11"
 brew "openssl@1.1"
 brew "pcre"
@@ -150,6 +150,7 @@ brew "tmux"
 brew "transmission-cli"
 brew "tree"
 brew "truncate"
+brew "universal-ctags"
 brew "vips"
 brew "w3m"
 brew "watch"
@@ -170,10 +171,12 @@ cask "backblaze"
 cask "bartender"
 cask "brave-browser"
 cask "dropbox"
+cask "elgato-control-center"
 cask "firefox"
 cask "firefox@developer-edition"
 cask "font-iosevka-nerd-font"
 cask "font-lato"
+cask "font-monaspace"
 cask "github"
 cask "google-chrome"
 cask "google-chrome@canary"
@@ -181,13 +184,14 @@ cask "gpg-suite"
 cask "handbrake"
 cask "harvest"
 cask "iina"
-cask "imagealpha"
 cask "imageoptim"
 cask "iterm2"
 cask "jetbrains-toolbox"
 cask "karabiner-elements"
 cask "kitty"
 cask "lastfm"
+cask "linearmouse"
+cask "logi-options+"
 cask "loom"
 cask "pym-player"
 cask "qlmarkdown"
@@ -207,30 +211,15 @@ cask "wkhtmltopdf"
 cask "xld"
 cask "zoom"
 mas "Bear", id: 1091189122
-mas "Capo", id: 696977615
 mas "Cascadea", id: 1432182561
-mas "ColorSnapper2", id: 969418666
-mas "DaVinci Resolve", id: 571213070
 mas "Disk Diag", id: 672206759
 mas "GarageBand", id: 682658836
-mas "Harvest", id: 506189836
 mas "iMovie", id: 408981434
-mas "Keynote", id: 409183694
 mas "LittleSnapper", id: 403489261
 mas "Logic Pro", id: 634148309
 mas "MainStage", id: 634159523
 mas "Meeter", id: 1510445899
-mas "Messenger", id: 1480068668
-mas "Numbers", id: 409203825
 mas "OmniFocus", id: 1346203938
 mas "OmniGraffle", id: 1142578753
-mas "Pages", id: 409201541
-mas "Pixelmator", id: 407963104
-mas "Pixelmator Pro", id: 1289583905
-mas "Pocket", id: 568494494
-mas "Soulver 2", id: 413965349
-mas "Tapes", id: 779457527
-mas "The Unarchiver", id: 425424353
 mas "Trello", id: 1278508951
 mas "Tweetbot", id: 1384080005
-mas "xScope", id: 889428659
