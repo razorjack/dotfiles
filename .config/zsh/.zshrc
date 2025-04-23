@@ -118,3 +118,5 @@ yt() {
     local video_link="$1"
     fabric -y "$video_link" --transcript
 }
+
+command -v mise >/dev/null && eval "$(mise activate zsh)"
