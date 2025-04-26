@@ -25,29 +25,19 @@ export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/usr/local
 export DIRENV_LOG_FORMAT=''
 
 xzarchive() {
-  archive_target=${1%/}
+  d=${1%/}
 
-  if [ -d "$archive_target/log/" ]; then
-    :> "$archive_target/log/*.log"
+  if [ -d "$d/log/" ]; then
+    for f in "$d"/log/*.log(N); do : > "$f"; done
   fi
 
-  if [ -d "$archive_target/tmp/cache" ]; then
-    rm -rf "$archive_target/tmp/cache"
-  fi
+  [ -d "$d/tmp/cache" ] && rm -rf "$d/tmp/cache"
+  [ -d "$d/node_modules" ] && rm -rf "$d/node_modules"
+  [ -d "$d/public/uploads" ] && rm -rf "$d/public/uploads"
+  [ -d "$d/public/system" ] && rm -rf "$d/public/system"
 
-  if [ -d "$archive_target/node_modules" ]; then
-    rm -rf "$archive_target/node_modules"
-  fi
-
-  if [ -d "$archive_target/public/uploads" ]; then
-    rm -rf "$archive_target/public/uploads"
-  fi
-
-  if [ -d "$archive_target/public/system" ]; then
-    rm -rf "$archive_target/public/system"
-  fi
-
-  tar -c "$archive_target" | xz -3 --lzma2=preset=3,dict=512Mi --verbose > "$archive_target.tar.xz"
+  # tar -cf - "$d" | xz -T0 -9e --lzma2=dict=1Gi > "$d.tar.xz"
+  tar -c "$d" | xz -T0 -9e --lzma2=dict=1Gi --verbose > "$d.tar.xz"
 }
 
 tmsetup() {
