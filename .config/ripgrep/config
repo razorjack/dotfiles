@@ -2,3 +2,4 @@
 --smart-case
 --no-heading
 --hidden
+--glob=!.git/
