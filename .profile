@@ -53,6 +53,7 @@ xzarchive() {
 tmsetup() {
   sudo tmutil addexclusion -p ~/Downloads
   sudo tmutil addexclusion -p ~/.rbenv
+  sudo tmutil addexclusion -p ~/.local/share/mise
   sudo tmutil addexclusion -p ~/.npm
   # Exclude logs
   fd --no-ignore-vcs --exclude node_modules --exclude public/system --exclude public/uploads --exclude tmp -p -g "**/log/*.log" ~/Projects -x sudo tmutil addexclusion -p
