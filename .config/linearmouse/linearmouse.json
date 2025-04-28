@@ -1,76 +1,55 @@
 {
-  "$schema" : "https:\/\/schema.linearmouse.app\/0.10.0",
   "schemes" : [
     {
       "scrolling" : {
-        "acceleration" : {
-          "horizontal" : 1,
-          "vertical" : 0.65
-        },
-        "reverse" : true,
         "distance" : {
           "horizontal" : "auto"
         },
-        "speed" : {
-          "horizontal" : 0,
-          "vertical" : 28.64
-        }
-      },
-      "pointer" : {
-        "acceleration" : 0.7775,
-        "speed" : 0.1574,
-        "disableAcceleration" : false
-      },
-      "if" : {
-        "device" : {
-          "productID" : "0xc52b",
-          "productName" : "USB Receiver",
-          "vendorID" : "0x46d",
-          "category" : "mouse"
-        }
-      }
-    },
-    {
-      "scrolling" : {
-        "reverse" : {
-          "vertical" : true
-        }
-      },
-      "if" : {
-        "device" : {
-          "productID" : "0xb025",
-          "vendorID" : "0x46d",
-          "productName" : "MX Anywhere 3",
-          "serialNumber" : "32F452D8F11B2099",
-          "category" : "mouse"
-        }
-      }
-    },
-    {
-      "scrolling" : {
-        "reverse" : {
-          "vertical" : true
-        },
         "acceleration" : {
-          "vertical" : 1.28
+          "vertical" : 0.65,
+          "horizontal" : 1
         },
         "speed" : {
-          "vertical" : 43.63
-        }
+          "vertical" : 28.64,
+          "horizontal" : 0
+        },
+        "reverse" : true
       },
       "pointer" : {
-        "acceleration" : 0.5773,
-        "speed" : 0.1307,
-        "disableAcceleration" : false
+        "disableAcceleration" : false,
+        "acceleration" : 0.7775,
+        "speed" : 0.1574
       },
       "if" : {
         "device" : {
           "productName" : "USB Receiver",
-          "vendorID" : "0x46d",
+          "productID" : "0xc52b",
+          "category" : "mouse",
+          "vendorID" : "0x46d"
+        }
+      }
+    },
+    {
+      "scrolling" : {
+        "reverse" : true,
+        "acceleration" : {
+          "vertical" : 0.91
+        }
+      },
+      "pointer" : {
+        "disableAcceleration" : false,
+        "speed" : 0.0876,
+        "acceleration" : 1.2494
+      },
+      "if" : {
+        "device" : {
+          "category" : "mouse",
           "productID" : "0xc548",
-          "category" : "mouse"
+          "vendorID" : "0x46d",
+          "productName" : "USB Receiver"
         }
       }
     }
-  ]
+  ],
+  "$schema" : "https:\/\/schema.linearmouse.app\/0.10.0"
 }
