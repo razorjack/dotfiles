@@ -3,31 +3,73 @@
   "schemes" : [
     {
       "scrolling" : {
-        "speed" : {
-          "vertical" : 28.64,
-          "horizontal" : 0
+        "acceleration" : {
+          "horizontal" : 1,
+          "vertical" : 0.65
         },
         "reverse" : true,
-        "acceleration" : {
-          "vertical" : 0.65,
-          "horizontal" : 1
-        },
         "distance" : {
           "horizontal" : "auto"
+        },
+        "speed" : {
+          "horizontal" : 0,
+          "vertical" : 28.64
+        }
+      },
+      "pointer" : {
+        "acceleration" : 0.7775,
+        "speed" : 0.1574,
+        "disableAcceleration" : false
+      },
+      "if" : {
+        "device" : {
+          "productID" : "0xc52b",
+          "productName" : "USB Receiver",
+          "vendorID" : "0x46d",
+          "category" : "mouse"
+        }
+      }
+    },
+    {
+      "scrolling" : {
+        "reverse" : {
+          "vertical" : true
         }
       },
       "if" : {
         "device" : {
+          "productID" : "0xb025",
           "vendorID" : "0x46d",
-          "productID" : "0xc52b",
-          "category" : "mouse",
-          "productName" : "USB Receiver"
+          "productName" : "MX Anywhere 3",
+          "serialNumber" : "32F452D8F11B2099",
+          "category" : "mouse"
+        }
+      }
+    },
+    {
+      "scrolling" : {
+        "reverse" : {
+          "vertical" : true
+        },
+        "acceleration" : {
+          "vertical" : 1.28
+        },
+        "speed" : {
+          "vertical" : 43.63
         }
       },
       "pointer" : {
-        "speed" : 0.1574,
-        "acceleration" : 0.7775,
+        "acceleration" : 0.5773,
+        "speed" : 0.1307,
         "disableAcceleration" : false
+      },
+      "if" : {
+        "device" : {
+          "productName" : "USB Receiver",
+          "vendorID" : "0x46d",
+          "productID" : "0xc548",
+          "category" : "mouse"
+        }
       }
     }
   ]
