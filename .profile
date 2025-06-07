@@ -45,10 +45,13 @@ tmsetup() {
   sudo tmutil addexclusion -p ~/.rbenv
   sudo tmutil addexclusion -p ~/.local/share/mise
   sudo tmutil addexclusion -p ~/.npm
+  sudo tmutil addexclusion -p ~/.cache
   # Exclude logs
   fd --no-ignore-vcs --exclude node_modules --exclude public/system --exclude public/uploads --exclude tmp -p -g "**/log/*.log" ~/Projects -x sudo tmutil addexclusion -p
   # Exclude tmp directories of Rails projects
   fd --no-ignore-vcs --exclude public/system --exclude public/uploads -p -g "**/*/tmp" ~/Projects -x sudo tmutil addexclusion -p
+  # Exclude petabytes of data from node_modules
+  fd --no-ignore-vcs --exclude public/system --exclude public/uploads -t d -g '**/node_modules' -E '**/node_modules/**/node_modules' ~/Projects -x sudo tmutil addexclusion -p
 }
 
 dbdump() {
