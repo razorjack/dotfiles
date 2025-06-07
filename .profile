@@ -61,6 +61,43 @@ dbdump() {
   pg_dumpall | zstd -14 -T8 --long=31 | tee "$backup_dir/postgres-$(date -u +%Y-W%W).zst" "$backup_dir/postgres-$(date -u +%w).zst" > /dev/null
 }
 
+dirarchive() {
+  local dir="${1%/}"  # strip trailing slash
+  if [[ -z "$dir" ]]; then
+    echo "Usage: dirarchive <directory>" >&2
+    return 1
+  fi
+  if [[ ! -d "$dir" ]]; then
+    echo "dirarchive: '$dir' is not a directory" >&2
+    return 1
+  fi
+  local parent base outfile
+  parent="$(dirname -- "$dir")"
+  base="$(basename -- "$dir")"
+  outfile="${base}.tar.zst"
+  tar -cf - -C "$parent" "$base" | zstd -14 -T8 --long=31 -o "$outfile"
+}
+
+dirunarchive() {
+  local file="${1%}"  # as‐given name
+  if [[ -z "$file" ]]; then
+    echo "Usage: dirunarchive <archive> (with or without .tar.zst)" >&2
+    return 1
+  fi
+
+  local archive
+  if [[ -f "$file" ]]; then
+    archive="$file"
+  elif [[ -f "${file}.tar.zst" ]]; then
+    archive="${file}.tar.zst"
+  else
+    echo "dirunarchive: '$file(.tar.zst)' not found" >&2
+    return 1
+  fi
+
+  zstd -d --long=31 --progress -c "$archive" | tar -xf -
+}
+
 command -v mise >/dev/null && eval "$(mise activate --shims)"
 
 alias cici='goreman -f Procfile.test start'
