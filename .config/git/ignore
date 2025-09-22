@@ -9,3 +9,7 @@ tags
 .autoenv_leave.zsh
 Procfile.test
 public/system*
+
+config/initializers/00_local.rb
+config/initializers/ZZ_local.rb
+mise.local.toml
