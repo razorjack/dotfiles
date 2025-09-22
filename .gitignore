@@ -48,6 +48,7 @@ Sites/
 !.config/ripgrep/ignore
 !.config/gem/gemrc
 !.config/kitty/*
+!.config/ghostty/*
 !.config/pry/*
 !.config/pg/*
 !.config/zsh/.zshrc

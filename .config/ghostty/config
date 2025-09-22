@@ -1,0 +1,35 @@
+font-family = "Monaspace Neon"
+font-size = 15
+font-feature = -calt, -liga, -dlig
+
+adjust-cell-height = 20%
+adjust-cell-width  = 0%
+
+background = #0c0c0d
+foreground = #d3d2d1
+selection-background = #163356
+selection-foreground = #b3b1ad
+cursor-color = #73b7f2
+
+# palette = 0=#484f58
+# palette = 1=#ff7b72
+# palette = 2=#3fd950
+# palette = 3=#d29952
+# palette = 4=#58a6ff
+# palette = 5=#bc8cff
+# palette = 6=#39c5cf
+# palette = 7=#adb5b6
+# palette = 8=#8d95a6
+# palette = 9=#ffa198
+# palette = 10=#56d364
+# palette = 11=#e3b341
+# palette = 12=#79c0ff
+# palette = 13=#d2a8ff
+# palette = 14=#56d4dd
+# palette = 15=#b3b1ad
+
+split-divider-color = #b3b1ad
+cursor-style-blink = false
+cursor-opacity = 1.0
+
+macos-titlebar-style = tabs
