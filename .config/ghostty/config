@@ -33,3 +33,4 @@ cursor-style-blink = false
 cursor-opacity = 1.0
 
 macos-titlebar-style = tabs
+keybind = shift+enter=text:\x1b\r
