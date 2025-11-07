@@ -1,5 +1,7 @@
 --recurse=yes
 --tag-relative=yes
+--sort=yes
+
 --exclude=.git
 --exclude=log
 --exclude=public/system
@@ -8,5 +10,12 @@
 --exclude=tmp
 --exclude=node_modules
 --exclude=public
---fields=+l
+--exclude=dist
+--exclude=build
+--exclude=.cache
 
+--langmap=javascript:+.jsx+.mjs+.cjs
+--langmap=typescript:+.tsx+.mts+.cts
+
+--fields=+KlnS
+--excmd=pattern
