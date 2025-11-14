@@ -54,7 +54,16 @@ Sites/
 !.config/zsh/.zshrc
 !.config/zsh/.zshenv
 !.config/zsh/.zlogin
+!.config/nvim/.gitignore
 !.config/nvim/init.lua
+!.config/nvim/lazyvim.json
+!.config/nvim/lazy-lock.json
+!.config/nvim/lua/config/autocmds.lua
+!.config/nvim/lua/config/keymaps.lua
+!.config/nvim/lua/config/lazy.lua
+!.config/nvim/lua/config/options.lua
+!.config/nvim/lua/plugins/colorscheme.lua
+!.config/nvim/stylua.toml
 !.config/git/*
 !.config/vim/vimrc
 !.config/readline/inputrc
