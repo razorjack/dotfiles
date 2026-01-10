@@ -49,6 +49,7 @@ Sites/
 !.config/gem/gemrc
 !.config/kitty/*
 !.config/ghostty/*
+!.config/CLAUDE.md
 !.config/pry/*
 !.config/pg/*
 !.config/zsh/.zshrc
