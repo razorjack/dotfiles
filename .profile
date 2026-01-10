@@ -46,6 +46,20 @@ tmsetup() {
   sudo tmutil addexclusion -p ~/.local/share/mise
   sudo tmutil addexclusion -p ~/.npm
   sudo tmutil addexclusion -p ~/.cache
+  sudo tmutil addexclusion -p ~/.dropbox
+  # DB backups are performed with dbdump
+  sudo tmutil addexclusion -p /opt/homebrew/var
+  # Everything web browser related is considered transient and unworthy of backup
+  sudo tmutil addexclusion -p "~/Library/Application Support/Google/Chrome Canary"
+  sudo tmutil addexclusion -p "~/Library/Application Support/Google/Chrome"
+  sudo tmutil addexclusion -p "~/Library/Application Support/BraveSoftware/Brave-Browser-Beta"
+
+  sudo tmutil addexclusion -p "~/Library/Application Support/Telegram Desktop"
+  sudo tmutil addexclusion -p "~/Library/Application Support/Spotify/PersistentCache"
+  sudo tmutil addexclusion -p "~/Library/Application Support/Dropbox"
+  sudo tmutil addexclusion -p "~/Library/Application Support/BraveSoftware"
+  # sudo tmutil addexclusion -p
+
   # Exclude logs
   fd --no-ignore-vcs --exclude node_modules --exclude public/system --exclude public/uploads --exclude tmp -p -g "**/log/*.log" ~/Projects -x sudo tmutil addexclusion -p
   # Exclude tmp directories of Rails projects
