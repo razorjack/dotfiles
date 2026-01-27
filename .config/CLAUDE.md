@@ -31,6 +31,20 @@ Due to the whitelist approach, adding new files requires special handling:
 
 After the file is committed once, it will be tracked normally and `-f` is no longer needed. Always run git commands from `~/` (repo root).
 
+## Configuration File Locations
+
+Quick reference for common configurations:
+
+- **Git**: `~/.config/git/config` - aliases, user info, merge/diff settings
+- **Zsh**: `~/.zshrc`, `~/.zshenv` - shell configuration, environment variables
+- **Neovim**: `~/.config/nvim/` - LazyVim configuration
+- **Ghostty**: `~/.config/ghostty/` - terminal emulator config
+- **Kitty**: `~/.config/kitty/` - terminal emulator config
+- **Karabiner**: `~/.config/karabiner/` - keyboard customization
+- **Lazygit**: `~/.config/lazygit/` - git TUI configuration
+- **Mise**: `~/.config/mise/` or `~/.mise.toml` - version manager config
+- **Brewfile**: `~/.config/razorjack/Brewfile` - Homebrew package list
+
 ## Shell & Terminal
 
 - **Shell**: zsh (preferred)
