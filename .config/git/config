@@ -45,6 +45,7 @@
   up = pull --rebase --autostash
   wip = for-each-ref --sort='authordate:iso8601' --format=' %(color:green)%(authordate:relative)%09%(color:white)%(refname:short)' refs/heads
   sw = !git checkout $(git branch -a --format '%(refname:short)' | sed 's~origin/~~' | sort | uniq | fzf)
+  recent = !git reflog show --format='%gs' | grep 'checkout: moving' | sed 's/checkout: moving from .* to //' | awk '!seen[$0]++' | fzf | xargs git checkout
   cleanup = "!git branch --merged | grep  -v '\\*\\|master\\|main' | xargs -n 1 git branch -d"
   rubocop = "!git diff --name-only --diff-filter=d master... | xargs bundle exec rubocop \"$@\""
 [merge]
