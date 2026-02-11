@@ -1,5 +1,11 @@
+[[ -x /opt/homebrew/bin/brew ]] && eval "$(/opt/homebrew/bin/brew shellenv)"
+
 [[ -s "$HOME/.customenv" ]] && source "$HOME/.customenv"
 source ~/.profile
+
+mise_shims="${MISE_DATA_DIR:-$HOME/.local/share/mise}/shims"
+[[ -d "$mise_shims" ]] && export PATH="$mise_shims:$PATH"
+unset mise_shims
 
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
 
@@ -18,4 +24,3 @@ HISTFILESIZE=1000000
 source ~/.config/bash/bundler-exec.sh
 source ~/.config/bash/fastprompt.sh
 if [ -e /Users/razorjack/.nix-profile/etc/profile.d/nix.sh ]; then . /Users/razorjack/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
-if [ -f "/Users/razorjack/.config/fabric/fabric-bootstrap.inc" ]; then . "/Users/razorjack/.config/fabric/fabric-bootstrap.inc"; fi

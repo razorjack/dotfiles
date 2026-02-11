@@ -21,14 +21,14 @@ export EDITOR='nvim'
 export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
 
-export PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/X11/bin:/usr/local/sbin:~/bin:$PATH
+export PATH="$HOME/bin:$PATH"
 export DIRENV_LOG_FORMAT=''
 
 xzarchive() {
   d=${1%/}
 
   if [ -d "$d/log/" ]; then
-    for f in "$d"/log/*.log(N); do : > "$f"; done
+    for f in "$d"/log/*.log; do [ -e "$f" ] && : > "$f"; done
   fi
 
   [ -d "$d/tmp/cache" ] && rm -rf "$d/tmp/cache"
@@ -112,8 +112,6 @@ dirunarchive() {
   zstd -d --long=31 --progress -c "$archive" | tar -xf -
 }
 
-command -v mise >/dev/null && eval "$(mise activate --shims)"
-
 alias cici='goreman -f Procfile.test start'
 alias dot='(cd && nvim $(git ls-files | fzf))'
 alias gg=lazygit
@@ -128,5 +126,3 @@ export LESS_TERMCAP_us="$(printf '%b' '[1;32m')"
 export LESS_TERMCAP_ue="$(printf '%b' '[0m')"
 export HOMEBREW_NO_AUTO_UPDATE=1
 
-export NVM_DIR="$HOME/.nvm"
-[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm

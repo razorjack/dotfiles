@@ -36,7 +36,7 @@ After the file is committed once, it will be tracked normally and `-f` is no lon
 Quick reference for common configurations:
 
 - **Git**: `~/.config/git/config` - aliases, user info, merge/diff settings
-- **Zsh**: `~/.zshrc`, `~/.zshenv` - shell configuration, environment variables
+- **Zsh**: `~/.zshenv` sets `ZDOTDIR=~/.config/zsh`, so all other zsh files (`.zshrc`, `.zprofile`, `.zlogin`) are loaded from `~/.config/zsh/`, **not** `~/`. The `~/.zprofile` file is NOT sourced.
 - **Neovim**: `~/.config/nvim/` - LazyVim configuration
 - **Ghostty**: `~/.config/ghostty/` - terminal emulator config
 - **Kitty**: `~/.config/kitty/` - terminal emulator config
@@ -51,6 +51,30 @@ Quick reference for common configurations:
 - **Terminal Emulators**:
   - Primary: ghostty
   - Secondary: kitty
+
+### Shell Loading Chain
+
+**`~/.profile`** is a shared file sourced by both zsh and bash — it **must stay bash-compatible** (no zsh-specific syntax like glob qualifiers).
+
+**`~/.customenv`** is an **untracked** per-machine overlay file (not in git). It sets `RZR_PREFIX=$HOMEBREW_PREFIX` (used by `.zshrc` for p10k, zsh-syntax-highlighting, z).
+
+**Zsh** (all shell types):
+```
+~/.zshenv → brew shellenv → ~/.config/zsh/.zshenv → ~/.customenv + ~/.profile + mise shims
+```
+- Login shells also source `~/.config/zsh/.zprofile` (re-prepends mise shims after macOS `path_helper`)
+- Interactive shells also source `~/.config/zsh/.zshrc` (`mise activate zsh` for full integration)
+
+**Bash** (login):
+```
+~/.bash_profile → brew shellenv → ~/.customenv + ~/.profile → mise shims prepend
+```
+
+### Mise Activation Strategy
+
+**Shims-only** — do NOT use `mise activate zsh`/`mise activate bash` (causes mixed-mode PATH conflicts where install paths override shims, breaking per-project version resolution).
+- **Shims**: `~/.config/zsh/.zshenv` (zsh), `~/.bash_profile` (bash)
+- **Shims re-prepend** (macOS login shells): `~/.config/zsh/.zprofile` (counteracts `path_helper`)
 
 ## Development Environment
 
