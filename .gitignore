@@ -55,6 +55,7 @@ Sites/
 !.config/zsh/.zshrc
 !.config/zsh/.zshenv
 !.config/zsh/.zlogin
+!.config/zsh/.zprofile
 !.config/nvim/.gitignore
 !.config/nvim/init.lua
 !.config/nvim/lazyvim.json
