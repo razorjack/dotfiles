@@ -1,0 +1,5 @@
+- **CRITICAL:** Never add "Generated with Claude Code" to commits or pull requests.
+- Never add yourself as a committer.
+- Only comment complex code; skip trivial comments.
+- Do not post anything on GitHub on my behalf unless I explicitly ask you to submit or update a pull request. When in doubt, don't post.
+- Never use em dashes. In prose and docs, use en dashes with spaces (` – `). In code, use ASCII dashes.
