@@ -114,3 +114,4 @@ yt() {
     fabric -y "$video_link" --transcript
 }
 
+[ -f ~/.config/op/plugins.sh ] && source ~/.config/op/plugins.sh
