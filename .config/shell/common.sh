@@ -85,8 +85,15 @@ dirunarchive() {
 }
 
 alias cici='goreman -f Procfile.test start'
-alias dot='(cd && nvim $(git ls-files | fzf))'
 alias gg=lazygit
+
+# Fuzzy-open a tracked dotfile in $HOME. Guard against a cancelled fzf so we
+# never launch nvim with no argument.
+dot() {
+  local file
+  file="$(cd && git ls-files | fzf)" || return
+  [ -n "$file" ] && (cd && nvim "$file")
+}
 
 export LESS=-R
 export LESS_TERMCAP_mb="$(printf '%b' '[1;31m')"
