@@ -1,0 +1,47 @@
+theme "catppuccin-mocha"
+pane_frames false
+simplified_ui true
+mouse_mode true
+copy_on_select true
+session_serialization true
+scroll_buffer_size 50000
+default_mode "locked"
+auto_attach false
+default_layout "agents"
+
+keybinds {
+    locked {
+        bind "Alt 1" { GoToTab 1; }
+        bind "Alt 2" { GoToTab 2; }
+        bind "Alt 3" { GoToTab 3; }
+        bind "Alt 4" { GoToTab 4; }
+        bind "Alt 5" { GoToTab 5; }
+        bind "Alt 6" { GoToTab 6; }
+        bind "Alt 7" { GoToTab 7; }
+        bind "Alt 8" { GoToTab 8; }
+        bind "Alt 9" { GoToTab 9; }
+        bind "Alt t" { NewTab; }
+        bind "Alt r" { SwitchToMode "RenameTab"; TabNameInput 0; }
+        bind "Alt h" { GoToPreviousTab; }
+        bind "Alt l" { GoToNextTab; }
+        bind "Alt f" { ToggleFloatingPanes; }
+        bind "Alt w" { CloseFocus; }
+    }
+    shared_except "locked" {
+        bind "Alt 1" { GoToTab 1; }
+        bind "Alt 2" { GoToTab 2; }
+        bind "Alt 3" { GoToTab 3; }
+        bind "Alt 4" { GoToTab 4; }
+        bind "Alt 5" { GoToTab 5; }
+        bind "Alt 6" { GoToTab 6; }
+        bind "Alt 7" { GoToTab 7; }
+        bind "Alt 8" { GoToTab 8; }
+        bind "Alt 9" { GoToTab 9; }
+        bind "Alt t" { NewTab; }
+        bind "Alt r" { SwitchToMode "RenameTab"; TabNameInput 0; }
+        bind "Alt h" { GoToPreviousTab; }
+        bind "Alt l" { GoToNextTab; }
+        bind "Alt f" { ToggleFloatingPanes; }
+        bind "Alt w" { CloseFocus; }
+    }
+}

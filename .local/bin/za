@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# za — Zellij Agent launcher
+
+case "${1:-}" in
+"")
+  zellij list-sessions 2>&1 || true
+  echo ""
+  echo "Usage: za <name>"
+  exit
+  ;;
+-k)
+  zellij kill-session "${2:?Usage: za -k <name>}"
+  exit
+  ;;
+-K)
+  zellij kill-all-sessions
+  exit
+  ;;
+-h | --help)
+  echo "za <name> to create/attach, za to list, za -k <name> to kill"
+  exit
+  ;;
+esac
+
+# Attach if exists, otherwise create new (default_layout in config.kdl handles the layout)
+if zellij list-sessions 2>&1 | grep -q "^${1}"; then
+  exec zellij attach "${1}"
+fi
+exec zellij -s "${1}"
