@@ -46,6 +46,7 @@
 !/.config/readline/
 !/.config/ripgrep/
 !/.config/scripts/
+!/.config/shell/
 !/.config/tmux/
 
 # Config directories tracked selectively (they also hold untracked content)
