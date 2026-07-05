@@ -3,7 +3,9 @@
 command_timeout = 1000
 add_newline = true
 
-# One line of info, then the prompt character on its own line.
+# One line of info, then the prompt character on its own line. Language
+# versions are pushed to the right edge of the info line by the $fill module
+# (space symbol, so a dir with no languages just leaves blank space).
 # The directory is shown relative to $HOME, full depth (see [directory]).
 # Language versions are collapsed into a single bracketed, comma-separated
 # group instead of repeating "via" per language. Starship cannot join optional
@@ -13,7 +15,11 @@ add_newline = true
 # Node but no Ruby shows a leading comma: [, ⬢ v22]. To avoid that entirely,
 # drop the commas and separate with spaces instead:
 #   (\[$ruby $nodejs $python $rust $golang\] )
-format = '$directory$git_branch$git_state$git_status(\[$ruby(, $nodejs)(, $python)(, $rust)(, $golang)\] )$line_break$character '
+format = '$directory$git_branch$git_state$git_status$fill(\[$ruby(, $nodejs)(, $python)(, $rust)(, $golang)\])$line_break$character '
+
+[fill]
+# Invisible spacer that right-aligns the language versions.
+symbol = " "
 
 [directory]
 # Full path relative to $HOME (no repo-root collapse, no truncation).
