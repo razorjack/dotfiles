@@ -101,7 +101,7 @@ source $RZR_PREFIX/share/powerlevel10k/powerlevel10k.zsh-theme
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 source ~/.config/zsh/p10k.zsh
-bindkey '^R' history-incremental-search-backward
+eval "$(atuin init zsh)"
 export PATH="$HOME/.local/bin:$PATH"
 
 if [[ -d /opt/homebrew/opt/postgresql@16 ]]; then
