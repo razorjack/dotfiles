@@ -127,7 +127,6 @@ brew "python@3.10"
 brew "qt"
 brew "rabbitmq", restart_service: :changed
 brew "ranger"
-brew "reattach-to-user-namespace"
 brew "redis", restart_service: :changed
 brew "ripgrep"
 brew "ripgrep-all"
