@@ -23,11 +23,17 @@ setopt promptsubst
 
 autoload -Uz compinit
 zstyle ':completion:*' menu select
-if [ $(date +'%j') != $(stat -f '%Sm' -t '%j' ~/.zcompdump) ]; then
-  compinit
-else
+# Rebuild the dump if it is missing or older than 24h, else take the -C fast
+# path. ZDOTDIR is set, so the real dump lives at $ZDOTDIR/.zcompdump. The glob
+# qualifier (N.mh-24) only matches a regular file modified in the last 24h;
+# filename generation must happen in this array assignment, not inside [[ ]].
+_zdump=(${ZDOTDIR:-$HOME}/.zcompdump(N.mh-24))
+if (( $#_zdump )); then
   compinit -C
+else
+  compinit
 fi
+unset _zdump
 
 autoload -U auto_bundle_exec
 auto_bundle_exec
