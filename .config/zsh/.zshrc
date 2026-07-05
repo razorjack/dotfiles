@@ -65,7 +65,6 @@ setopt HIST_VERIFY               # Don't execute immediately upon history expans
 # Without this, ^R (history-incremental-search-backward) hangs after 1-2 chars.
 ZSH_HIGHLIGHT_MAXLENGTH=200
 source $RZR_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-source $RZR_PREFIX/etc/profile.d/z.sh
 export ZSH_HIGHLIGHT_HIGHLIGHTERS_DIR=$RZR_PREFIX/share/zsh-syntax-highlighting/highlighters
 [[ -d "$RZR_PREFIX/share/zsh-completions" ]] && fpath=("$RZR_PREFIX/share/zsh-completions" $fpath)
 
@@ -90,6 +89,7 @@ bindkey '^xe' edit-command-line
 bindkey '^x^e' edit-command-line
 
 eval "$(direnv hook zsh)"
+eval "$(zoxide init zsh)"
 
 autoload edit-command-line; zle -N edit-command-line
 bindkey '^e' edit-command-line
