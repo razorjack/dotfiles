@@ -61,7 +61,7 @@ ZSH_HIGHLIGHT_MAXLENGTH=200
 source $RZR_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source $RZR_PREFIX/etc/profile.d/z.sh
 export ZSH_HIGHLIGHT_HIGHLIGHTERS_DIR=$RZR_PREFIX/share/zsh-syntax-highlighting/highlighters
-fpath=(/usr/local/share/zsh-completions $fpath)
+[[ -d "$RZR_PREFIX/share/zsh-completions" ]] && fpath=("$RZR_PREFIX/share/zsh-completions" $fpath)
 
 # Taken from https://github.com/bkzl/dotfiles/blob/master/zshrc
 fancy-ctrl-z () {
@@ -83,8 +83,6 @@ zle -N edit-command-line
 bindkey '^xe' edit-command-line
 bindkey '^x^e' edit-command-line
 
-test -e "${HOME}/.iterm2_shell_integration.zsh" && source "${HOME}/.iterm2_shell_integration.zsh"
-
 eval "$(direnv hook zsh)"
 
 autoload edit-command-line; zle -N edit-command-line
@@ -98,19 +96,14 @@ source $RZR_PREFIX/share/powerlevel10k/powerlevel10k.zsh-theme
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 source ~/.config/zsh/p10k.zsh
 bindkey '^R' history-incremental-search-backward
-export PATH="/opt/homebrew/opt/mongodb-community@4.2/bin:$PATH"
-export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
-export PATH="/Users/razorjack/.local/bin:$PATH"
-export LDFLAGS="-L/opt/homebrew/opt/node@2w/lib"
-export CPPFLAGS="-I/opt/homebrew/opt/node@2w/include"
-export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
-export LDFLAGS="-L/opt/homebrew/opt/postgresql@16/lib"
-export CPPFLAGS="-I/opt/homebrew/opt/postgresql@16/include"
-export PKG_CONFIG_PATH="/opt/homebrew/opt/postgresql@16/lib/pkgconfig"
-# Golang environment variables
-export GOROOT=$(brew --prefix go)/libexec
-export GOPATH=$HOME/go
-export PATH=$GOPATH/bin:$GOROOT/bin:$HOME/.local/bin:$PATH
+export PATH="$HOME/.local/bin:$PATH"
+
+if [[ -d /opt/homebrew/opt/postgresql@16 ]]; then
+  export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
+  export LDFLAGS="-L/opt/homebrew/opt/postgresql@16/lib"
+  export CPPFLAGS="-I/opt/homebrew/opt/postgresql@16/include"
+  export PKG_CONFIG_PATH="/opt/homebrew/opt/postgresql@16/lib/pkgconfig"
+fi
 
 yt() {
     local video_link="$1"
