@@ -55,6 +55,9 @@ setopt HIST_SAVE_NO_DUPS         # Don't write duplicate entries in the history 
 setopt HIST_REDUCE_BLANKS        # Remove superfluous blanks before recording entry.
 setopt HIST_VERIFY               # Don't execute immediately upon history expansion.
 
+# Cap the buffer length the syntax highlighter re-scans on every keystroke.
+# Without this, ^R (history-incremental-search-backward) hangs after 1-2 chars.
+ZSH_HIGHLIGHT_MAXLENGTH=200
 source $RZR_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 source $RZR_PREFIX/etc/profile.d/z.sh
 export ZSH_HIGHLIGHT_HIGHLIGHTERS_DIR=$RZR_PREFIX/share/zsh-syntax-highlighting/highlighters
