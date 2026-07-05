@@ -80,12 +80,10 @@ autoload -U edit-command-line
 zle -N edit-command-line
 bindkey '^xe' edit-command-line
 bindkey '^x^e' edit-command-line
+bindkey '^e' edit-command-line
 
 eval "$(direnv hook zsh)"
 eval "$(zoxide init zsh)"
-
-autoload edit-command-line; zle -N edit-command-line
-bindkey '^e' edit-command-line
 
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
