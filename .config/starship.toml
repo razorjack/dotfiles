@@ -1,11 +1,57 @@
 # Starship prompt - https://starship.rs/config/
-# Starts from starship's defaults; customise as needed.
 
-# Give git and language modules more headroom before timing out.
 command_timeout = 1000
+add_newline = true
 
-# Vi-mode-aware prompt character (the shell runs `bindkey -v`).
+# One line of info, then the prompt character on its own line.
+# The directory is shown relative to $HOME, full depth (see [directory]).
+# Language versions are collapsed into a single bracketed, comma-separated
+# group instead of repeating "via" per language. Starship cannot join optional
+# modules with commas perfectly: the leading item ($ruby) carries no comma and
+# the rest add ", " only when present. Ruby is first so the common cases (a
+# Ruby-only dir like $HOME, or a Ruby+Node app) stay clean; only a dir with
+# Node but no Ruby shows a leading comma: [, ⬢ v22]. To avoid that entirely,
+# drop the commas and separate with spaces instead:
+#   (\[$ruby $nodejs $python $rust $golang\] )
+format = '$directory$git_branch$git_state$git_status(\[$ruby(, $nodejs)(, $python)(, $rust)(, $golang)\] )$line_break$character '
+
+[directory]
+# Full path relative to $HOME (no repo-root collapse, no truncation).
+truncate_to_repo = false
+truncation_length = 0
+style = "bold #00afff"
+
+[git_branch]
+format = 'on [$symbol$branch]($style) '
+style = "bold #ff5fd7"
+
+[git_status]
+style = "bold #ffd700"
+
+[git_state]
+style = "bold #ff8700"
+
+[nodejs]
+format = '[$symbol$version]($style)'
+style = "bold #5fd75f"
+
+[ruby]
+format = '[$symbol$version]($style)'
+style = "bold #ff5f5f"
+
+[python]
+format = '[$symbol$version]($style)'
+style = "bold #ffd75f"
+
+[rust]
+format = '[$symbol$version]($style)'
+style = "bold #ff875f"
+
+[golang]
+format = '[$symbol$version]($style)'
+style = "bold #00d7af"
+
 [character]
-success_symbol = "[❯](bold green)"
-error_symbol = "[❯](bold red)"
-vicmd_symbol = "[❮](bold green)"
+success_symbol = '[❯](bold #5fff5f)'
+error_symbol = '[❯](bold #ff5f5f)'
+vicmd_symbol = '[❮](bold #ffd700)'
