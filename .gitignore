@@ -10,7 +10,6 @@
 !/.bashrc
 !/.profile
 !/.zshenv
-!/.pumaenv
 
 # --- top-level directories ---
 !/.zsh/
