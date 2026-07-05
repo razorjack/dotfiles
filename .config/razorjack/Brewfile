@@ -118,7 +118,6 @@ brew "redis", restart_service: :changed
 brew "ripgrep"
 brew "ripgrep-all"
 brew "rsync"
-brew "ruby-build"
 brew "rust"
 brew "rustup"
 brew "s3cmd"

@@ -177,7 +177,7 @@ au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g
 
 map <Leader>t :FZF<CR>
 
-let g:ruby_path = system('echo $HOME/.rbenv/shims')
+let g:ruby_path = system('echo $HOME/.local/share/mise/shims')
 
 :let $NVIM_TUI_ENABLE_CURSOR_SHAPE=1
 
