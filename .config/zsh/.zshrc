@@ -10,7 +10,7 @@ autoload -Uz add-zsh-hook
 add-zsh-hook precmd set-title-precmd
 add-zsh-hook preexec set-title-preexec
 
-fpath=($fpath $HOME/.zsh/functions $HOME/.zsh/completions)
+fpath=($fpath $HOME/.zsh/functions)
 typeset -U fpath
 setopt promptsubst
 
