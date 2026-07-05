@@ -7,4 +7,4 @@ mise_shims="${MISE_DATA_DIR:-$HOME/.local/share/mise}/shims"
 unset mise_shims
 
 # Added by Toolbox App
-export PATH="$PATH:/Users/razorjack/Library/Application Support/JetBrains/Toolbox/scripts"
+[[ -d "$HOME/Library/Application Support/JetBrains/Toolbox/scripts" ]] && export PATH="$PATH:$HOME/Library/Application Support/JetBrains/Toolbox/scripts"

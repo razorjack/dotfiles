@@ -23,4 +23,4 @@ HISTFILESIZE=1000000
 
 source ~/.config/bash/bundler-exec.sh
 source ~/.config/bash/fastprompt.sh
-if [ -e /Users/razorjack/.nix-profile/etc/profile.d/nix.sh ]; then . /Users/razorjack/.nix-profile/etc/profile.d/nix.sh; fi # added by Nix installer
+if [ -e "$HOME/.nix-profile/etc/profile.d/nix.sh" ]; then . "$HOME/.nix-profile/etc/profile.d/nix.sh"; fi # added by Nix installer

@@ -64,7 +64,7 @@ setopt HIST_VERIFY               # Don't execute immediately upon history expans
 # Cap the buffer length the syntax highlighter re-scans on every keystroke.
 # Without this, ^R (history-incremental-search-backward) hangs after 1-2 chars.
 ZSH_HIGHLIGHT_MAXLENGTH=200
-source $RZR_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+[[ -f $RZR_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]] && source $RZR_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 export ZSH_HIGHLIGHT_HIGHLIGHTERS_DIR=$RZR_PREFIX/share/zsh-syntax-highlighting/highlighters
 [[ -d "$RZR_PREFIX/share/zsh-completions" ]] && fpath=("$RZR_PREFIX/share/zsh-completions" $fpath)
 
@@ -97,7 +97,7 @@ bindkey '^e' edit-command-line
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
 export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
-source $RZR_PREFIX/share/powerlevel10k/powerlevel10k.zsh-theme
+[[ -f $RZR_PREFIX/share/powerlevel10k/powerlevel10k.zsh-theme ]] && source $RZR_PREFIX/share/powerlevel10k/powerlevel10k.zsh-theme
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 source ~/.config/zsh/p10k.zsh
