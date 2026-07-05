@@ -19,18 +19,6 @@
 /.claude/*
 !/.claude/CLAUDE.md
 
-# VS Code user settings (dropped together with the app later)
-!/Library/
-/Library/*
-!/Library/Application Support/
-/Library/Application Support/*
-!/Library/Application Support/Code/
-/Library/Application Support/Code/*
-!/Library/Application Support/Code/User/
-/Library/Application Support/Code/User/*
-!/Library/Application Support/Code/User/settings.json
-!/Library/Application Support/Code/User/keybindings.json
-
 # --- .config ---
 !/.config/
 /.config/*
