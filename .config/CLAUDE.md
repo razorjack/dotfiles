@@ -50,14 +50,14 @@ Quick reference for common configurations:
 
 **`~/.profile`** is a thin loader: it sources the shared `~/.config/shell/common.sh`, then the per-OS fragment (`darwin.sh` on macOS, `linux.sh` on Linux) chosen by `uname -s`. All three **must stay bash-compatible** (sourced by both zsh and bash) – no zsh-only syntax like glob qualifiers.
 
-**`~/.customenv`** is an **untracked** per-machine overlay (not in git) – the home for machine-specific env. On macOS it sets `RZR_PREFIX=$HOMEBREW_PREFIX`; on Fedora (no Homebrew) it should set `RZR_PREFIX=/usr`. `RZR_PREFIX` is used by `.zshrc` for p10k and zsh-syntax-highlighting.
+**`~/.customenv`** is an **untracked** per-machine overlay (not in git) – the home for machine-specific env. On macOS it sets `RZR_PREFIX=$HOMEBREW_PREFIX`; on Fedora (no Homebrew) it should set `RZR_PREFIX=/usr`. `RZR_PREFIX` is used by `.zshrc` for zsh-syntax-highlighting and zsh-completions.
 
 **Zsh** (all shell types):
 ```
 ~/.zshenv → brew shellenv → ~/.config/zsh/.zshenv → ~/.customenv + ~/.profile + mise shims
 ```
 - Login shells also source `~/.config/zsh/.zprofile` (re-prepends mise shims after macOS `path_helper`)
-- Interactive shells also source `~/.config/zsh/.zshrc` (completions, keybindings, prompt, zoxide, atuin)
+- Interactive shells also source `~/.config/zsh/.zshrc` (completions, keybindings, starship prompt, zoxide, atuin)
 
 **Bash** (login):
 ```
@@ -91,6 +91,7 @@ When implementing features or scripts, prefer these modern alternatives:
 | `mise` | Version manager | Replaces rbenv/nvm; manages ALL runtimes |
 | `zoxide` | Directory jumping | Replaces `z`; the `z` command is zoxide |
 | `atuin` | Shell history | Owns `^R`; local-only, no sync |
+| `starship` | Shell prompt | Replaces powerlevel10k; config in `~/.config/starship.toml` |
 | `bat` | File viewer | Cat alternative with syntax highlighting |
 | `eza` | Directory listing | Modern ls replacement |
 | `delta` | Git diff | Enhanced diff viewer |

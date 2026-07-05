@@ -23,6 +23,7 @@
 !/.config/
 /.config/*
 !/.config/CLAUDE.md
+!/.config/starship.toml
 
 # Config directories tracked wholesale
 !/.config/ack/

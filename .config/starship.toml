@@ -1,0 +1,11 @@
+# Starship prompt - https://starship.rs/config/
+# Starts from starship's defaults; customise as needed.
+
+# Give git and language modules more headroom before timing out.
+command_timeout = 1000
+
+# Vi-mode-aware prompt character (the shell runs `bindkey -v`).
+[character]
+success_symbol = "[❯](bold green)"
+error_symbol = "[❯](bold red)"
+vicmd_symbol = "[❮](bold green)"
