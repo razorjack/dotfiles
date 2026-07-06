@@ -105,7 +105,6 @@ brew "postgresql@16", restart_service: :changed
 brew "procs"
 brew "qt"
 brew "rabbitmq", restart_service: :changed
-brew "ranger"
 brew "redis", restart_service: :changed
 brew "ripgrep"
 brew "ripgrep-all"
