@@ -82,14 +82,27 @@ bindkey '^xe' edit-command-line
 bindkey '^x^e' edit-command-line
 bindkey '^e' edit-command-line
 
-eval "$(direnv hook zsh)"
-eval "$(zoxide init zsh)"
+# Cache each tool's zsh init and re-source it, instead of forking the tool on
+# every new shell (~30 ms/tab). Regenerate only when the binary is newer.
+_cache_tool_init() {
+  local cache="$HOME/.cache/zsh-init/$1.zsh" bin
+  bin=$(command -v "$2") || return
+  if [[ ! -r "$cache" || "$bin" -nt "$cache" ]]; then
+    mkdir -p "${cache:h}"
+    shift
+    "$@" > "$cache"
+  fi
+  source "$cache"
+}
 
-# Guard on a real terminal (stderr is a tty): fzf's zle widgets warn in a
-# ttyless interactive shell (e.g. `zsh -ic` in scripts) where zle can't run.
-[[ -t 2 ]] && command -v fzf >/dev/null && source <(fzf --zsh)
+_cache_tool_init direnv   direnv hook zsh
+_cache_tool_init zoxide   zoxide init zsh
+_cache_tool_init atuin    atuin init zsh
+_cache_tool_init starship starship init zsh
+# fzf's zle widgets warn in a ttyless interactive shell (e.g. `zsh -ic` in
+# scripts) where zle can't run, so load it only with a real terminal (stderr).
+[[ -t 2 ]] && _cache_tool_init fzf fzf --zsh
 
-eval "$(atuin init zsh)"
-eval "$(starship init zsh)"
+unfunction _cache_tool_init
 
 [ -f ~/.config/op/plugins.sh ] && source ~/.config/op/plugins.sh
