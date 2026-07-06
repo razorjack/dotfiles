@@ -13,6 +13,10 @@ add-zsh-hook preexec set-title-preexec
 typeset -U fpath
 setopt promptsubst
 
+# paths.sh uses `brew shellenv sh`, which omits brew's zsh completions dir; add
+# it back before compinit.
+[[ -n "$HOMEBREW_PREFIX" && -d "$HOMEBREW_PREFIX/share/zsh/site-functions" ]] && fpath=("$HOMEBREW_PREFIX/share/zsh/site-functions" $fpath)
+
 autoload -Uz compinit
 zstyle ':completion:*' menu select
 # Rebuild the dump if it is missing or older than 24h, else take the -C fast
@@ -83,18 +87,8 @@ eval "$(zoxide init zsh)"
 # ttyless interactive shell (e.g. `zsh -ic` in scripts) where zle can't run.
 [[ -t 2 ]] && command -v fzf >/dev/null && source <(fzf --zsh)
 
-export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
-
 eval "$(atuin init zsh)"
 eval "$(starship init zsh)"
-export PATH="$HOME/.local/bin:$PATH"
-
-if [[ -d /opt/homebrew/opt/postgresql@16 ]]; then
-  export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
-  export LDFLAGS="-L/opt/homebrew/opt/postgresql@16/lib"
-  export CPPFLAGS="-I/opt/homebrew/opt/postgresql@16/include"
-  export PKG_CONFIG_PATH="/opt/homebrew/opt/postgresql@16/lib/pkgconfig"
-fi
 
 yt() {
     local video_link="$1"

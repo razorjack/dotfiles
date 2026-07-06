@@ -1,11 +1,7 @@
-[[ -x /opt/homebrew/bin/brew ]] && eval "$(/opt/homebrew/bin/brew shellenv)"
+source "$HOME/.config/shell/paths.sh"
 
 [[ -s "$HOME/.customenv" ]] && source "$HOME/.customenv"
 source ~/.profile
-
-mise_shims="${MISE_DATA_DIR:-$HOME/.local/share/mise}/shims"
-[[ -d "$mise_shims" ]] && export PATH="$mise_shims:$PATH"
-unset mise_shims
 
 command -v fzf >/dev/null && eval "$(fzf --bash)"
 

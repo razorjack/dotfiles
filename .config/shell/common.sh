@@ -21,7 +21,6 @@ export EDITOR='nvim'
 export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
 
-export PATH="$HOME/bin:$PATH"
 export DIRENV_LOG_FORMAT=''
 
 xzarchive() {
