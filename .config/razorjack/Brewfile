@@ -1,4 +1,3 @@
-tap "clementtsang/bottom"
 tap "heroku/brew"
 tap "homebrew/services"
 tap "mongodb/brew"
