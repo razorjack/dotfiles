@@ -21,6 +21,5 @@ eval "$(direnv hook bash)"
 HISTSIZE=10000
 HISTFILESIZE=1000000
 
-source ~/.config/bash/bundler-exec.sh
 source ~/.config/bash/fastprompt.sh
 if [ -e "$HOME/.nix-profile/etc/profile.d/nix.sh" ]; then . "$HOME/.nix-profile/etc/profile.d/nix.sh"; fi # added by Nix installer
