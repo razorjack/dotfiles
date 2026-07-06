@@ -97,7 +97,7 @@ _cache_tool_init() {
 
 _cache_tool_init direnv   direnv hook zsh
 _cache_tool_init zoxide   zoxide init zsh
-_cache_tool_init atuin    atuin init zsh
+_cache_tool_init atuin    atuin init zsh --disable-up-arrow
 _cache_tool_init starship starship init zsh
 # fzf's zle widgets warn in a ttyless interactive shell (e.g. `zsh -ic` in
 # scripts) where zle can't run, so load it only with a real terminal (stderr).
