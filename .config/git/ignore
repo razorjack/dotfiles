@@ -1,12 +1,9 @@
-.powenv
 *.DS_Store
 .idea/
 
 tags
 !tags/
 .vscode/
-.autoenv.zsh
-.autoenv_leave.zsh
 Procfile.test
 public/system*
 
