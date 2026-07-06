@@ -11,9 +11,6 @@
 !/.profile
 !/.zshenv
 
-# --- top-level directories ---
-!/.zsh/
-
 # .claude: only the global CLAUDE.md is tracked
 !/.claude/
 /.claude/*

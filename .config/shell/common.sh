@@ -86,6 +86,12 @@ dirunarchive() {
 
 alias cici='goreman -f Procfile.test start'
 alias gg=lazygit
+alias be='bundle exec'
+
+# Prefer a project's Rails/Rake binstub, but fall back to the real executable
+# so `rails new`, or rake outside a project, still work.
+rails() { if [ -x bin/rails ]; then bin/rails "$@"; else command rails "$@"; fi; }
+rake()  { if [ -x bin/rake ];  then bin/rake  "$@"; else command rake  "$@"; fi; }
 
 # Fuzzy-open a tracked dotfile in $HOME. Guard against a cancelled fzf so we
 # never launch nvim with no argument.
