@@ -1,3 +1,8 @@
+# Keep PATH duplicate-free. Set before anything modifies PATH so every later
+# prepend (mise shims here and re-prepended in .zprofile, plus .zshrc's tool
+# paths) collapses to a single entry instead of stacking in nested shells.
+typeset -U path PATH
+
 [[ -s "$HOME/.customenv" ]] && source "$HOME/.customenv"
 source ~/.profile
 
