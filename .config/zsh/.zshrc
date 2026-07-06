@@ -79,7 +79,9 @@ bindkey '^e' edit-command-line
 eval "$(direnv hook zsh)"
 eval "$(zoxide init zsh)"
 
-[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+# Guard on a real terminal (stderr is a tty): fzf's zle widgets warn in a
+# ttyless interactive shell (e.g. `zsh -ic` in scripts) where zle can't run.
+[[ -t 2 ]] && command -v fzf >/dev/null && source <(fzf --zsh)
 
 export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
 

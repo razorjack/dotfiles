@@ -7,7 +7,7 @@ mise_shims="${MISE_DATA_DIR:-$HOME/.local/share/mise}/shims"
 [[ -d "$mise_shims" ]] && export PATH="$mise_shims:$PATH"
 unset mise_shims
 
-[ -f ~/.fzf.bash ] && source ~/.fzf.bash
+command -v fzf >/dev/null && eval "$(fzf --bash)"
 
 _fzf_compgen_path() {
   fd --hidden --follow --exclude ".git" . "$1"
