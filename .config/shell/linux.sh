@@ -1,3 +1,2 @@
-# Linux-specific shell config. Sourced from ~/.profile after common.sh.
-
-alias ls="ls --color=auto"
+# Linux-specific environment. Sourced from ~/.profile after common.sh. Env only;
+# interactive bits (ls colours) live in interactive.sh. Empty for now.

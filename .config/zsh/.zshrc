@@ -13,6 +13,8 @@ add-zsh-hook preexec set-title-preexec
 typeset -U fpath
 setopt promptsubst
 
+source "$HOME/.config/shell/interactive.sh"
+
 # paths.sh uses `brew shellenv sh`, which omits brew's zsh completions dir; add
 # it back before compinit.
 [[ -n "$HOMEBREW_PREFIX" && -d "$HOMEBREW_PREFIX/share/zsh/site-functions" ]] && fpath=("$HOMEBREW_PREFIX/share/zsh/site-functions" $fpath)
@@ -89,10 +91,5 @@ eval "$(zoxide init zsh)"
 
 eval "$(atuin init zsh)"
 eval "$(starship init zsh)"
-
-yt() {
-    local video_link="$1"
-    fabric -y "$video_link" --transcript
-}
 
 [ -f ~/.config/op/plugins.sh ] && source ~/.config/op/plugins.sh
