@@ -3,8 +3,11 @@
 typeset -U path PATH
 
 # On the env path so all zsh shell types get the full PATH. Also sets
-# HOMEBREW_PREFIX, which .customenv reads next.
+# HOMEBREW_PREFIX, which the per-OS fragments sourced by .profile read.
 source "$HOME/.config/shell/paths.sh"
 
-[[ -s "$HOME/.customenv" ]] && source "$HOME/.customenv"
 source ~/.profile
+
+# Optional machine-local overrides (untracked). Sourced last so it can override
+# anything the shared and per-OS config set. Usually absent.
+[[ -s "$HOME/.customenv" ]] && source "$HOME/.customenv"

@@ -1,0 +1,9 @@
+[Unit]
+Description=ydotoold - uinput input daemon (Wayland text injection for Voxtype)
+
+[Service]
+ExecStart=/usr/bin/ydotoold --socket-path=%t/.ydotool_socket
+Restart=always
+
+[Install]
+WantedBy=default.target

@@ -1,7 +1,10 @@
 source "$HOME/.config/shell/paths.sh"
 
-[[ -s "$HOME/.customenv" ]] && source "$HOME/.customenv"
 source ~/.profile
+
+# Optional machine-local overrides (untracked). Sourced last so it can override
+# anything the shared and per-OS config set. Usually absent.
+[[ -s "$HOME/.customenv" ]] && source "$HOME/.customenv"
 
 # bash auto-sources .bashrc only for non-login interactive shells, so do it here
 # for interactive login shells too.

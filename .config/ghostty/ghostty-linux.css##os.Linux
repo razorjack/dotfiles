@@ -1,0 +1,22 @@
+/* Linux/KDE-only (yadm alternate; the ghostty-linux.css symlink exists only on
+   Linux): shrink Ghostty's GTK tab bar so it matches the smaller terminal font
+   under KDE fractional scaling. There is no per-app scaling on Plasma 6
+   Wayland, so this styles the chrome directly. Tune to taste; inspect the live
+   GTK node tree with:
+     GTK_DEBUG=interactive ghostty  */
+
+tabbar tabbox {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+tabbar tabbox tab {
+  min-height: 0;
+  margin: 0;
+  padding: 2px 6px;
+}
+
+tabbar tabbox tab label {
+  font-size: 12px;
+}

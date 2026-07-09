@@ -491,23 +491,15 @@ setup_dictation() {
   # injects via the kernel's uinput, which works under KWin. Run ydotoold as a
   # user service (a Steam/uaccess udev rule already grants rw on /dev/uinput)
   # and point the ydotool client - which Voxtype invokes - at its socket.
+  # The unit and environment.d files are tracked dotfiles; deploy them from the
+  # repo only if the dotfiles aren't checked out yet.
   if command -v ydotoold >/dev/null; then
-    install -d "$CONFIG_HOME/systemd/user" "$CONFIG_HOME/environment.d"
-    cat > "$CONFIG_HOME/systemd/user/ydotoold.service" <<'EOF'
-[Unit]
-Description=ydotoold - uinput input daemon (Wayland text injection for Voxtype)
-
-[Service]
-ExecStart=/usr/bin/ydotoold --socket-path=%t/.ydotool_socket
-Restart=always
-
-[Install]
-WantedBy=default.target
-EOF
-    cat > "$CONFIG_HOME/environment.d/ydotool.conf" <<'EOF'
-# Let the ydotool client (invoked by voxtype) find the user ydotoold socket.
-YDOTOOL_SOCKET=${XDG_RUNTIME_DIR}/.ydotool_socket
-EOF
+    [ -f "$CONFIG_HOME/systemd/user/ydotoold.service" ] \
+      || install -Dm644 "$SCRIPT_DIR/../systemd/user/ydotoold.service" \
+           "$CONFIG_HOME/systemd/user/ydotoold.service"
+    [ -f "$CONFIG_HOME/environment.d/ydotool.conf" ] \
+      || install -Dm644 "$SCRIPT_DIR/../environment.d/ydotool.conf" \
+           "$CONFIG_HOME/environment.d/ydotool.conf"
     systemctl --user daemon-reload 2>/dev/null || true
     systemctl --user enable --now ydotoold 2>/dev/null \
       || warn "Start ydotoold later: systemctl --user enable --now ydotoold"
@@ -536,14 +528,11 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
-# 13. Shell: switch the login shell to zsh and set the per-machine overlay.
-#     ~/.customenv is untracked; RZR_PREFIX=/usr points .zshrc at the Fedora
-#     paths for zsh-syntax-highlighting/completions (no Homebrew here).
+# 13. Shell: switch the login shell to zsh. (RZR_PREFIX lives in the tracked
+#     .config/shell/linux.sh; no per-machine overlay needed.)
 # ---------------------------------------------------------------------------
 setup_zsh() {
-  msg "zsh as login shell + ~/.customenv overlay"
-  grep -qs 'RZR_PREFIX' "$HOME/.customenv" 2>/dev/null \
-    || echo 'export RZR_PREFIX=/usr' >> "$HOME/.customenv"
+  msg "zsh as login shell"
   if [ "$(getent passwd "$USER" | cut -d: -f7)" != /usr/bin/zsh ]; then
     chsh -s /usr/bin/zsh
     warn "Log out and back in for zsh to take effect."

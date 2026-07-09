@@ -1,0 +1,35 @@
+# Linux/KDE Ghostty overrides, tracked as a yadm alternate: on Linux, yadm
+# links linux.conf -> linux.conf##os.Linux; on macOS no link exists, so the
+# `config-file = ?linux.conf` include at the end of the shared config stays a
+# silent no-op there. Edit THIS file, not through the linux.conf symlink.
+
+# KDE fractional scaling (1.5) renders point sizes ~1.3x larger than macOS's
+# "150%" HiDPI mode, so the shared font-size 15 looks huge here. Tune to taste.
+font-size = 11
+
+# macOS puts tabs in the title bar (one bar). On KDE the default is a
+# server-side title bar PLUS Ghostty's tab bar (two bars). Drop the redundant
+# title bar so only the tab bar remains (it shows when you have >1 tab).
+# Trade-off: no window buttons - use Meta+drag to move, Meta+Q to close.
+# Prefer a title bar WITH window controls? Use:  window-decoration = client
+window-decoration = none
+
+# KDE renders the GTK tab bar at 1.5x too, so it looks huge next to the smaller
+# font. There is no per-app scale on Plasma 6 Wayland (Wayland core is
+# integer-only; forcing a lower scale would blur), so shrink the tab-bar chrome
+# with custom CSS instead. Path is relative to this config's directory.
+gtk-custom-css = ghostty-linux.css
+
+# keyd maps Super+C/V -> Ctrl+C/V globally (works in GUI apps), but a terminal
+# treats Ctrl+C as SIGINT. keyd-application-mapper can't fix this on KDE Plasma
+# 6 Wayland (it can't see the focused window there), so handle it in Ghostty:
+# Ctrl+C copies only when text is selected, else passes through as interrupt;
+# Ctrl+V pastes. Net: Super+C / Super+V copy & paste like macOS.
+# (ctrl+v replaces readline's quoted-insert here - drop the line if you need it.)
+keybind = performable:ctrl+c=copy_to_clipboard
+keybind = ctrl+v=paste_from_clipboard
+
+# Super+F opens Ghostty's scrollback search, like macOS Cmd+F. keyd doesn't
+# remap Super+F (only c/v/x), so it reaches Ghostty directly. Escape closes the
+# search (Ghostty default). Keeps the default Ctrl+Shift+F too.
+keybind = super+f=start_search

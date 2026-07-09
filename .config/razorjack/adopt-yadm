@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# One-time migration of this machine from a plain git checkout in $HOME to
+# yadm. Reversible: the old .git is moved (never deleted) and every replaced
+# file is moved into a backup directory. Run as:
+#     adopt-yadm [<pull-source> [<branch>]]
+# <pull-source> defaults to origin; on a machine whose checkout can't see the
+# migration commit yet, pass a local clone, e.g.:
+#     ~/Projects/dotfiles/.config/razorjack/adopt-yadm ~/Projects/dotfiles master
+
+PULL_FROM="${1:-origin}"
+PULL_REF="${2:-master}"
+YADM_DATA="${XDG_DATA_HOME:-$HOME/.local/share}/yadm"
+REPO="$YADM_DATA/repo.git"
+BACKUP="$HOME/dotfiles-pre-yadm-$(date +%Y%m%d-%H%M%S)"
+OS="$(uname -s)"
+
+msg()  { printf '\033[1;34m==> %s\033[0m\n' "$*"; }
+die()  { printf '\033[1;31m!! %s\033[0m\n' "$*" >&2; exit 1; }
+
+# --- preflight ---------------------------------------------------------------
+[ -d "$HOME/.git" ]  || die "No \$HOME/.git - nothing to adopt (already migrated?)."
+[ ! -e "$REPO" ]     || die "$REPO already exists - already migrated?"
+[ -z "$(git -C "$HOME" status --porcelain)" ] \
+  || die "\$HOME checkout is not clean; commit or stash first."
+
+# .customenv is retired (RZR_PREFIX moved into shell/darwin.sh + linux.sh).
+# Abort if it holds anything else, so nothing is silently lost.
+if [ -f "$HOME/.customenv" ]; then
+  if grep -Ev '^\s*(#|$)|^export RZR_PREFIX=(/usr|\$HOMEBREW_PREFIX)\s*$' \
+       "$HOME/.customenv" >/dev/null; then
+    die "~/.customenv contains more than RZR_PREFIX; move that into shell config first."
+  fi
+fi
+
+# --- back up the untracked machine-local files -------------------------------
+# Must happen BEFORE git pull (several of these paths become tracked files) and
+# BEFORE any yadm command (yadm's alt-linking silently replaces regular files
+# at the plain alternate paths). The -L test also catches symlinks (dangling or
+# not) so a partially-migrated state is cleaned up rather than tripped over.
+msg "Backing up machine-local files to $BACKUP"
+for f in \
+  .customenv \
+  '.config/ghostty/linux.conf' \
+  '.config/ghostty/linux.conf##os.Linux' \
+  '.config/ghostty/ghostty-linux.css' \
+  '.config/ghostty/ghostty-linux.css##os.Linux' \
+  '.config/kitty/linux-local.conf' \
+  '.config/kitty/linux-local.conf##os.Linux' \
+  .config/systemd/user/ydotoold.service \
+  .config/environment.d/ydotool.conf
+do
+  if [ -e "$HOME/$f" ] || [ -L "$HOME/$f" ]; then
+    mkdir -p "$BACKUP/$(dirname "$f")"
+    mv "$HOME/$f" "$BACKUP/$f"
+    echo "    moved $f"
+  fi
+done
+
+# --- bring in the migration commit -------------------------------------------
+msg "Pulling $PULL_REF from $PULL_FROM"
+git -C "$HOME" pull --ff-only "$PULL_FROM" "$PULL_REF"
+[ -x "$HOME/.local/bin/yadm" ] && [ -f "$HOME/.config/yadm/bootstrap" ] \
+  || die "Migration commit not present after pull; aborting (backups in $BACKUP)."
+
+# --- move the repo out of \$HOME and hand it to yadm --------------------------
+msg "Moving \$HOME/.git -> $REPO"
+mkdir -p "$YADM_DATA"
+mv "$HOME/.git" "$REPO"
+chmod -R go-rwx "$REPO"
+
+# yadm exports GIT_DIR and relies on core.worktree; a plain clone's .git has no
+# worktree set, so this must happen before ANY yadm/git command touches it.
+git --git-dir="$REPO" config core.bare false
+git --git-dir="$REPO" config core.worktree "$HOME"
+git --git-dir="$REPO" config status.showUntrackedFiles no
+git --git-dir="$REPO" config yadm.managed true
+
+YADM="$HOME/.local/bin/yadm"
+msg "yadm status"
+"$YADM" status
+msg "Building alternates"
+"$YADM" alt
+
+# --- verify -------------------------------------------------------------------
+if [ "$OS" = Linux ]; then
+  for f in .config/ghostty/linux.conf .config/ghostty/ghostty-linux.css \
+           .config/kitty/linux-local.conf; do
+    [ -L "$HOME/$f" ] && [ "$(readlink "$HOME/$f")" = "$(basename "$f")##os.Linux" ] \
+      || die "Expected $f to be a symlink to its ##os.Linux variant."
+    echo "    ok: $f -> $(readlink "$HOME/$f")"
+  done
+  [ -f "$HOME/.config/systemd/user/ydotoold.service" ] \
+    || die "ydotoold.service missing after checkout."
+fi
+[ -z "$("$YADM" status --porcelain)" ] || die "yadm status not clean after adoption."
+
+msg "Done. \$HOME is now managed by yadm (repo: $REPO)."
+echo "Backups: $BACKUP (delete once you're confident)."
+echo
+echo "To revert: mv $REPO \$HOME/.git;"
+echo "  git -C \$HOME config --unset core.worktree; remove the alt symlinks;"
+echo "  restore files from $BACKUP (and git reset --hard <pre-migration commit>"
+echo "  if you also want to rewind the pull)."

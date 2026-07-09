@@ -1,0 +1,14 @@
+# Linux/KDE kitty overrides, tracked as a yadm alternate: on Linux, yadm links
+# linux-local.conf -> linux-local.conf##os.Linux; on macOS no link exists, so
+# the `globinclude linux-local.conf` at the end of the shared kitty.conf stays
+# a silent no-op there. Edit THIS file, not through the symlink.
+
+# KDE fractional scaling (1.5) renders larger than macOS "150%", so the shared
+# font_size 15 looks huge here. Tune to taste.
+font_size 11
+
+# keyd sends Ctrl+C/V here (Super+C/V globally); make Ctrl+C copy-on-selection
+# (else interrupt) and Ctrl+V paste, so Super+C/V work like macOS. keyd's
+# per-app override can't run on KDE Plasma 6 Wayland.
+map ctrl+c copy_or_interrupt
+map ctrl+v paste_from_clipboard

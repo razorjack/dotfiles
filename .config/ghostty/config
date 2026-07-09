@@ -40,9 +40,9 @@ shell-integration-features = no-cursor
 macos-titlebar-style = tabs
 keybind = shift+enter=text:\x1b\r
 
-# Linux/KDE-only overrides live in an optional machine-local file (like
-# ~/.customenv): a smaller font-size for fractional scaling and
-# window-decoration tweaks. The file is absent on macOS, so this include is a
-# no-op there and the mac config is untouched. Last include wins, so its
-# font-size overrides the one above on Linux.
+# Linux/KDE-only overrides live in linux.conf, a yadm alternate: on Linux yadm
+# links it to linux.conf##os.Linux (smaller font-size for fractional scaling,
+# window-decoration tweaks); on macOS the link doesn't exist, so this optional
+# include is a no-op there and the mac config is untouched. Last include wins,
+# so its font-size overrides the one above on Linux.
 config-file = ?linux.conf

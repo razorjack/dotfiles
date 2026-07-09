@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# yadm bootstrap: cheap, idempotent post-clone steps only. Provisioning
+# (setup_linux / brew bundle) needs sudo and interaction, so it is pointed at,
+# not run.
+
+yadm alt
+
+case "$(uname -s)" in
+  Darwin)
+    echo "Next steps (run manually):"
+    echo "  brew bundle --file ~/.config/razorjack/Brewfile"
+    ;;
+  Linux)
+    echo "Next steps (run manually):"
+    echo "  ~/.config/razorjack/setup_linux"
+    ;;
+esac

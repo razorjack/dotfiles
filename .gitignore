@@ -48,9 +48,19 @@
 !/.config/tmux/
 
 # Config directories tracked selectively (they also hold untracked content)
+
+# environment.d: only the ydotool socket path is ours; the rest is runtime.
+!/.config/environment.d/
+/.config/environment.d/*
+!/.config/environment.d/ydotool.conf
+
+# ghostty: the ##os.Linux alternates are tracked; the plain-name symlinks yadm
+# generates from them stay ignored via the /* rule.
 !/.config/ghostty/
 /.config/ghostty/*
 !/.config/ghostty/config
+!/.config/ghostty/linux.conf##os.Linux
+!/.config/ghostty/ghostty-linux.css##os.Linux
 
 !/.config/jesseduffield/
 /.config/jesseduffield/*
@@ -80,10 +90,22 @@
 !/.config/vim/vimrc
 !/.config/vim/colors/
 
+# systemd user units: only ydotoold is ours; voxtype et al. write units here too.
+!/.config/systemd/
+/.config/systemd/*
+!/.config/systemd/user/
+/.config/systemd/user/*
+!/.config/systemd/user/ydotoold.service
+
 # voxtype: track only the config; it also stores downloaded Whisper models here
 !/.config/voxtype/
 /.config/voxtype/*
 !/.config/voxtype/config.toml
+
+# yadm: track only the bootstrap; yadm keeps its machine-local config here too.
+!/.config/yadm/
+/.config/yadm/*
+!/.config/yadm/bootstrap
 
 !/.config/zsh/
 /.config/zsh/.zcompdump*
@@ -102,9 +124,9 @@
 !/.local/bin/yadm
 !/.local/bin/za
 
-# Machine-local terminal overrides: Linux-only tweaks (font-size for fractional
-# scaling, window decorations) that must never reach macOS. Ghostty's dir is
-# already tracked selectively; kitty's is wholesale, so re-ignore its local file.
+# kitty is tracked wholesale, so ignore the plain name yadm links to the
+# ##os.Linux alternate on Linux (yadm also auto-excludes generated links via
+# repo.git/info/exclude; this guards the plain-git clone in ~/Projects too).
 /.config/kitty/linux-local.conf
 
 # keyd-application-mapper writes these into its config dir at runtime; keyd's
