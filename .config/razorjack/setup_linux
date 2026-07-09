@@ -1,2 +1,587 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
+# Fedora KDE (Plasma 6 / Wayland) provisioning, mirroring the macOS Brewfile.
+# Idempotent: safe to re-run. Sections are ordered by dependency and can be
+# commented out at the bottom of the file. Run as your normal user (NOT root);
+# individual steps escalate with sudo.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+FEDORA="$(rpm -E %fedora)"
+
+msg()  { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
+warn() { printf '\033[1;33m    ! %s\033[0m\n' "$*"; }
+
+if [ "$(id -u)" -eq 0 ]; then
+  echo "Run this as your normal user, not root." >&2
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# 0. Thunderbolt 3 dock: keep the dock's ethernet from dropping.
+#    The Elgato TB3 dock tunnels its NIC over PCIe; iommu=pt makes it flap.
+# ---------------------------------------------------------------------------
+setup_grub() {
+  msg "Removing iommu=pt (Thunderbolt dock ethernet stability)"
+  sudo grubby --update-kernel=ALL --remove-args="iommu=pt"
+  warn "Takes effect on next reboot."
+}
+
+# ---------------------------------------------------------------------------
+# 1. dnf: parallel downloads make the rest of this script much faster.
+# ---------------------------------------------------------------------------
+setup_dnf() {
+  msg "Tuning dnf"
+  sudo dnf install -y dnf-plugins-core dnf5-plugins
+  grep -q '^max_parallel_downloads' /etc/dnf/dnf.conf \
+    || echo 'max_parallel_downloads=10' | sudo tee -a /etc/dnf/dnf.conf >/dev/null
+  # Rank mirrors by speed so a slow one (e.g. ftp.icm.edu.pl) doesn't stall the
+  # big package download behind 30s-per-file timeouts.
+  grep -q '^fastestmirror' /etc/dnf/dnf.conf \
+    || echo 'fastestmirror=True' | sudo tee -a /etc/dnf/dnf.conf >/dev/null
+}
+
+# ---------------------------------------------------------------------------
+# 2. Third-party repos. Everything non-free lives here (you're fine with that).
+# ---------------------------------------------------------------------------
+setup_repos() {
+  msg "RPM Fusion (free + nonfree): NVIDIA driver, codecs, Steam"
+  sudo dnf install -y \
+    "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA}.noarch.rpm" \
+    "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA}.noarch.rpm"
+
+  msg "Flathub (GUI apps via flatpak)"
+  sudo dnf install -y flatpak
+  flatpak remote-add --if-not-exists flathub \
+    https://dl.flathub.org/repo/flathub.flatpakrepo
+
+  msg "COPRs (tools not in Fedora repos)"
+  for copr in scottames/ghostty varlad/zellij atim/lazygit atim/starship alternateved/keyd; do
+    sudo dnf copr enable -y "$copr"
+  done
+
+  msg "Browsers / 1Password / mise repos"
+  # Google Chrome (stable + dev; Linux has no "Canary" channel, dev is closest).
+  sudo dnf install -y fedora-workstation-repositories
+  sudo dnf config-manager setopt google-chrome.enabled=1
+
+  # Brave: two channels, two repos, so stable and beta install side by side.
+  sudo dnf config-manager addrepo --overwrite --from-repofile=https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
+  sudo dnf config-manager addrepo --overwrite --from-repofile=https://brave-browser-rpm-beta.s3.brave.com/brave-browser-beta.repo
+
+  # 1Password desktop + CLI.
+  sudo rpm --import https://downloads.1password.com/linux/keys/1password.asc
+  sudo tee /etc/yum.repos.d/1password.repo >/dev/null <<'EOF'
+[1password]
+name=1Password Stable Channel
+baseurl=https://downloads.1password.com/linux/rpm/stable/$basearch
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://downloads.1password.com/linux/keys/1password.asc
+EOF
+
+  # mise (runtime manager) from its own repo.
+  sudo dnf config-manager addrepo --overwrite --from-repofile=https://mise.jdx.dev/rpm/mise.repo
+}
+
+# ---------------------------------------------------------------------------
+# 3. Core CLI parity (Category A) + a few shell/GUI prerequisites.
+#    Fedora pulls the ~60 Brewfile libraries in transitively, so only leaves
+#    are listed here. Runtimes (Ruby/Node) are handled by mise, not dnf.
+# ---------------------------------------------------------------------------
+setup_packages() {
+  msg "Core CLI tools"
+  sudo dnf install -y \
+    git git-lfs \
+    zsh zsh-syntax-highlighting \
+    ripgrep fd-find fzf bat eza zoxide atuin git-delta \
+    neovim tmux zellij direnv jq yamllint tig tealdeer ShellCheck \
+    ctags starship lazygit \
+    the_silver_searcher ack \
+    ImageMagick ffmpegthumbs yt-dlp mpv nmap rsync zstd \
+    procs duf du-dust htop btop fastfetch \
+    pandoc glow w3m httpie \
+    gh pipx awscli2 \
+    wl-clipboard v4l-utils \
+    gnupg2 pinentry-qt pass \
+    unzip curl wget tree watch \
+    podman \
+    kitty \
+    keyd python3-dbus \
+    ghostty \
+    brave-browser brave-browser-beta \
+    google-chrome-stable google-chrome-unstable \
+    1password 1password-cli
+
+  msg "Build deps so mise can compile Ruby if no prebuilt binary exists"
+  sudo dnf install -y \
+    gcc gcc-c++ make automake bison openssl-devel readline-devel zlib-devel \
+    libyaml-devel gdbm-devel ncurses-devel libffi-devel
+
+  # pbcopy/pbpaste muscle memory is handled by aliases in shell/interactive.sh
+  # (wl-clipboard installed above).
+}
+
+# ---------------------------------------------------------------------------
+# 4. NVIDIA RTX 3070 Ti: proprietary driver. nouveau can't reclock Ampere, so
+#    the card is stuck at boot clocks until this lands. Secure Boot is off, so
+#    the akmod loads with no module-signing / MOK dance.
+# ---------------------------------------------------------------------------
+setup_nvidia() {
+  msg "NVIDIA proprietary driver + CUDA/NVENC + hardware video decode"
+  sudo dnf install -y akmod-nvidia xorg-x11-drv-nvidia-cuda libva-nvidia-driver
+  # Installing akmod-nvidia often pulls a newer kernel; akmods then builds the
+  # module for the NEWEST installed kernel, not necessarily the running one.
+  warn "akmods builds nvidia for the newest installed kernel (a kernel update"
+  warn "may have just come in). Let it finish, then verify BEFORE rebooting:"
+  warn '    K=$(ls -1 /lib/modules | sort -V | tail -1); modinfo -k "$K" -F version nvidia'
+  warn "(should print a version). Plain 'modinfo nvidia' checks the RUNNING"
+  warn "kernel and will error until you reboot."
+  warn "REBOOT into that newest kernel (GRUB default) to switch off nouveau."
+}
+
+# ---------------------------------------------------------------------------
+# 5. Codecs. Fedora ships a stripped ffmpeg-free; swap in the real thing.
+# ---------------------------------------------------------------------------
+setup_codecs() {
+  msg "Full ffmpeg + non-free codecs"
+  sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
+  sudo dnf install -y libavcodec-freeworld
+  sudo dnf group install -y multimedia \
+    --setopt=install_weak_deps=False --exclude=PackageKit-gstreamer-plugin
+}
+
+# ---------------------------------------------------------------------------
+# 6. Dev services, native (fast on Linux, unlike Docker-on-Mac). systemd starts
+#    them at boot; data lives under /var/lib.
+#    Prefer containers for any of these? Rootless podman quadlets are staged in
+#    .config/razorjack/quadlets/ (inert until activated). Switch per-service:
+#        .config/razorjack/quadlets/dbswitch mongodb container
+#    See that dir's README.md. podman is installed above so the option is ready.
+#    Comment out anything you'd rather not run locally.
+# ---------------------------------------------------------------------------
+setup_services() {
+  msg "PostgreSQL (native)"
+  sudo dnf install -y postgresql-server postgresql-contrib
+  [ -f /var/lib/pgsql/data/PG_VERSION ] || sudo postgresql-setup --initdb
+  sudo systemctl enable --now postgresql
+  warn "Create your dev role once:  sudo -u postgres createuser -s $USER"
+
+  msg "Valkey (Redis-compatible; Fedora replaced redis with valkey)"
+  sudo dnf install -y valkey
+  sudo systemctl enable --now valkey
+
+  msg "Memcached"
+  sudo dnf install -y memcached
+  sudo systemctl enable --now memcached
+
+  msg "LavinMQ (RabbitMQ replacement, AMQP 0-9-1 compatible)"
+  if [ ! -f /etc/yum.repos.d/cloudamqp_lavinmq.repo ]; then
+    curl -fsSL https://packagecloud.io/install/repositories/cloudamqp/lavinmq/script.rpm.sh | sudo bash
+  fi
+  # PackageCloud's script pins sslcacert=/etc/pki/tls/certs/ca-bundle.crt, which
+  # does not exist on Fedora (the trust store lives under /etc/pki/ca-trust), so
+  # every dnf run then errors on this repo. Drop the pin and let it use the
+  # default trust store like the other repos (sslverify stays on).
+  sudo sed -i '/^sslcacert=/d' /etc/yum.repos.d/cloudamqp_lavinmq.repo 2>/dev/null || true
+  # PackageCloud may not have an fc44 build yet; fall back to fc41 if needed.
+  sudo dnf install -y lavinmq || warn "No fc${FEDORA} LavinMQ build; see notes to pin an older releasever."
+  sudo systemctl enable --now lavinmq 2>/dev/null || true
+
+  # MongoDB: no official Fedora build. The RHEL9 repo generally works but is
+  # best-effort; this is the one service a container may be cleaner for.
+  msg "MongoDB (best-effort via RHEL9 repo)"
+  if [ ! -f /etc/yum.repos.d/mongodb-org-8.0.repo ]; then
+    sudo tee /etc/yum.repos.d/mongodb-org-8.0.repo >/dev/null <<'EOF'
+[mongodb-org-8.0]
+name=MongoDB Repository
+baseurl=https://repo.mongodb.org/yum/redhat/9/mongodb-org/8.0/x86_64/
+gpgcheck=1
+enabled=1
+gpgkey=https://pgp.mongodb.com/server-8.0.asc
+EOF
+  fi
+  sudo dnf install -y mongodb-org mongodb-mongosh \
+    && sudo systemctl enable --now mongod \
+    || warn "MongoDB install failed; consider a podman container instead (see notes)."
+}
+
+# ---------------------------------------------------------------------------
+# 7. mise: manages Ruby + Node from ~/.config/mise/config.toml.
+# ---------------------------------------------------------------------------
+setup_mise() {
+  msg "mise runtimes (Ruby, Node from config.toml)"
+  sudo dnf install -y mise
+  mise install
+}
+
+# ---------------------------------------------------------------------------
+# 8. GUI apps via Flatpak (Flathub).
+# ---------------------------------------------------------------------------
+setup_flatpaks() {
+  msg "Flatpak GUI apps"
+  flatpak install -y --noninteractive flathub \
+    md.obsidian.Obsidian \
+    com.discordapp.Discord \
+    com.slack.Slack \
+    com.spotify.Client \
+    us.zoom.Zoom \
+    fr.handbrake.ghb \
+    com.dropbox.Client \
+    dev.zed.Zed \
+    io.github.shiftey.Desktop \
+    org.telegram.desktop
+}
+
+# ---------------------------------------------------------------------------
+# 9. Steam (RPM Fusion nonfree; needs multilib, which dnf pulls in).
+# ---------------------------------------------------------------------------
+setup_steam() {
+  msg "Steam"
+  sudo dnf install -y steam
+}
+
+# ---------------------------------------------------------------------------
+# 9b. JetBrains Toolbox. No official repo, and Linux has no headless IDE
+#     install (Windows-only), so fetch the latest tarball via the JetBrains API
+#     and let Toolbox self-install on first launch; install RubyMine from it
+#     (one click). Toolbox's per-IDE 'rubymine' CLI launcher lands on PATH via
+#     shell/paths.sh once Toolbox creates it.
+# ---------------------------------------------------------------------------
+setup_jetbrains() {
+  msg "JetBrains Toolbox"
+  local bindir="$HOME/.local/share/JetBrains/Toolbox/bin"
+  if [ -x "$bindir/jetbrains-toolbox" ]; then
+    warn "Toolbox already present; skipping."
+    return
+  fi
+  local url tmp
+  url="$(curl -fsSL 'https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release' \
+    | jq -r '.TBA[0].downloads.linux.link')"
+  [ -n "$url" ] && [ "$url" != null ] || { warn "Could not resolve Toolbox URL; skipping."; return; }
+  tmp="$(mktemp -d)"
+  curl -fsSL "$url" -o "$tmp/toolbox.tar.gz"
+  mkdir -p "$bindir"
+  tar -xzf "$tmp/toolbox.tar.gz" -C "$bindir" --strip-components=1
+  rm -rf "$tmp"
+  warn "Toolbox installed. Launch it once to finish setup and sign in:"
+  warn "    \"$bindir/jetbrains-toolbox\" >/dev/null 2>&1 &"
+  warn "Then install RubyMine from Toolbox (it manages IDE updates thereafter)."
+}
+
+# ---------------------------------------------------------------------------
+# 10. Fonts the terminals reference but aren't in dnf. Lato is (lato-fonts).
+# ---------------------------------------------------------------------------
+setup_fonts() {
+  msg "Fonts (Monaspace Neon, Iosevka Nerd Font, Lato)"
+  sudo dnf install -y lato-fonts
+  local fdir="$HOME/.local/share/fonts"
+  mkdir -p "$fdir"
+
+  if ! fc-list | grep -qi 'Monaspace'; then
+    local tmp url
+    tmp="$(mktemp -d)"
+    url="$(curl -fsSL https://api.github.com/repos/githubnext/monaspace/releases/latest \
+      | jq -r '.assets[] | select(.name|test("monaspace-v.*\\.zip$")) | .browser_download_url' | head -1)"
+    curl -fsSL "$url" -o "$tmp/monaspace.zip"
+    unzip -q "$tmp/monaspace.zip" -d "$tmp"
+    # Static OTFs (Monaspace Neon) plus the variable TTFs (Monaspace Neon Var).
+    find "$tmp" \( -name '*.otf' -o -path '*variable*.ttf' \) -exec cp {} "$fdir/" \;
+    rm -rf "$tmp"
+  fi
+
+  if ! fc-list | grep -qi 'Iosevka.*Nerd'; then
+    local tmp
+    tmp="$(mktemp -d)"
+    curl -fsSL https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Iosevka.zip \
+      -o "$tmp/iosevka.zip"
+    mkdir -p "$fdir/IosevkaNerdFont"
+    unzip -q "$tmp/iosevka.zip" -d "$fdir/IosevkaNerdFont"
+    rm -rf "$tmp"
+  fi
+
+  fc-cache -f >/dev/null
+}
+
+# ---------------------------------------------------------------------------
+# 11. keyd: Caps->Control and macOS-style Super+C/V/X. Config source of truth
+#     is versioned at ~/.config/keyd/; only the system file is deployed.
+# ---------------------------------------------------------------------------
+setup_keyd() {
+  msg "keyd (caps->control, universal Super+C/V copy/paste)"
+  # Source from the repo (relative to this script) so the daemon is configured
+  # whether or not the dotfiles have been deployed to ~/.config yet.
+  sudo install -Dm644 "$SCRIPT_DIR/../keyd/default.conf" /etc/keyd/default.conf
+  sudo systemctl enable --now keyd
+  sudo keyd reload || true
+
+  # NOTE: keyd-application-mapper (the per-app override in ~/.config/keyd/app.conf)
+  # does NOT work on KDE Plasma 6 Wayland - it can't detect the focused window
+  # (only X11 / GNOME-Wayland / Sway are supported, see keyd issue #694). So we
+  # do NOT autostart it. keyd maps Super+C/V/X -> Ctrl+C/V/X globally (GUI apps
+  # copy/paste fine); terminals handle Ctrl+C/V themselves via the Ghostty/kitty
+  # machine-local overrides (performable ctrl+c copy-on-selection, ctrl+v paste).
+}
+
+# ---------------------------------------------------------------------------
+# 11b. VIA: let usevia.app configure Keychron keyboards over USB. hidraw nodes
+#      are root-only by default, so VIA can't open them without this rule.
+# ---------------------------------------------------------------------------
+setup_via() {
+  msg "VIA udev rule (Keychron hidraw access)"
+  sudo tee /etc/udev/rules.d/92-keychron-via.rules >/dev/null <<'EOF'
+# VIA hidraw access, Keychron + your session only - safe.
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3434", TAG+="uaccess"
+EOF
+  sudo udevadm control --reload-rules
+  # uaccess ACLs apply on 'add' events; a plain trigger (change) won't grant
+  # access to an already-plugged keyboard, so fire 'add' for hidraw to apply now.
+  sudo udevadm trigger --action=add --subsystem-match=hidraw || true
+  warn "If VIA still can't open it: unplug/replug the keyboard and fully restart Chrome."
+}
+
+# ---------------------------------------------------------------------------
+# 12. KDE: fast key repeat (the macOS KeyRepeat=1 / InitialKeyRepeat=15 feel).
+#     Natural scrolling and window animations left at KDE defaults per your call.
+# ---------------------------------------------------------------------------
+setup_kde() {
+  if command -v kwriteconfig6 >/dev/null; then
+    msg "KDE keyboard repeat (fast repeat, short delay)"
+    kwriteconfig6 --file kcminputrc --group Keyboard --key RepeatDelay 250
+    kwriteconfig6 --file kcminputrc --group Keyboard --key RepeatRate 50
+    warn "Applies on next login (or run: kcminit kcm_keyboard)."
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# 12b. Window tiling: Mudeer (KWin script) for macOS Rectangle-style 2/3 & 1/3
+#      snaps. Maximize/minimize stay native KWin; monitor-move is already
+#      Meta+Shift+Left/Right by default. Runs in the live KDE session.
+#      Mudeer's own action names can't be predicted offline, so its 4 tiling
+#      shortcuts are bound once in System Settings (guided below); everything
+#      else here is automated.
+# ---------------------------------------------------------------------------
+setup_window_tiling() {
+  command -v kpackagetool6 >/dev/null || { warn "No KDE tooling; skipping window tiling."; return; }
+  msg "Mudeer window-tiling KWin script"
+
+  # Install/update from source (git clone + make install is the documented method).
+  local src="${XDG_CACHE_HOME:-$HOME/.cache}/mudeer-src"
+  if [ -d "$src/.git" ]; then git -C "$src" pull --ff-only || true
+  else git clone --depth 1 https://github.com/darkstego/Mudeer "$src" || { warn "Mudeer clone failed."; return; }; fi
+  make -C "$src" install >/dev/null 2>&1 \
+    || kpackagetool6 --type KWin/Script --upgrade "$src" >/dev/null 2>&1 \
+    || kpackagetool6 --type KWin/Script --install "$src" >/dev/null 2>&1 \
+    || warn "Mudeer install failed; add it via System Settings > KWin Scripts."
+
+  # Enable it: derive the installed plugin id, flip it on, reload KWin live.
+  local id
+  id="$(basename "$(find "$HOME/.local/share/kwin/scripts" -maxdepth 1 -iname '*mudeer*' 2>/dev/null | head -1)")"
+  if [ -n "$id" ] && [ "$id" != . ]; then
+    kwriteconfig6 --file kwinrc --group Plugins --key "${id}Enabled" true
+    dbus-send --type=method_call --dest=org.kde.KWin /KWin org.kde.KWin.reconfigure 2>/dev/null || true
+    warn "Mudeer enabled (plugin id: $id)."
+  else
+    warn "Mudeer not found post-install; enable it under System Settings > KWin Scripts."
+  fi
+
+  # Shortcuts MUST go through the kglobalaccel D-Bus API, not kwriteconfig6: on
+  # Plasma 6 Wayland kwin_wayland owns org.kde.kglobalaccel, holds the shortcuts
+  # in memory and rewrites kglobalshortcutsrc from memory on exit - so any direct
+  # file edit during a live session is silently discarded on the next logout.
+  # Keys are Qt codes (modifiers|key): Ctrl=0x04000000, Shift=0x02000000,
+  # Meta=0x10000000, Left/Up/Right/Down=0x01000012..15.
+  command -v gdbus >/dev/null || { warn "gdbus missing; cannot bind tiling shortcuts."; return; }
+  # Give KWin a moment to register the freshly-enabled script's actions.
+  sleep 2
+
+  _kga() {
+    gdbus call --session --dest org.kde.kglobalaccel --object-path /kglobalaccel \
+      --method org.kde.KGlobalAccel.setForeignShortcut "['kwin','$1','','']" "$2" >/dev/null 2>&1 \
+      || warn "Could not bind '$1'."
+  }
+
+  # Ctrl+Meta+arrows are KDE defaults for "Switch One Desktop *"; with a single
+  # desktop they silently swallow the keys. Free them before rebinding.
+  for _a in "Switch One Desktop Up" "Switch One Desktop Down" \
+            "Switch One Desktop to the Left" "Switch One Desktop to the Right"; do
+    _kga "$_a" "@ai []"
+  done
+
+  _kga "Window Maximize"          "@ai [352321555]"   # Ctrl+Meta+Up
+  _kga "Window Minimize"          "@ai [352321557]"   # Ctrl+Meta+Down
+  _kga "Mudeer Two-Thirds Left"   "@ai [352321554]"   # Ctrl+Meta+Left
+  _kga "Mudeer Two-Thirds Right"  "@ai [385875986]"   # Ctrl+Meta+Shift+Left
+  _kga "Mudeer Third Right"       "@ai [352321556]"   # Ctrl+Meta+Right
+  _kga "Mudeer Third Left"        "@ai [385875988]"   # Ctrl+Meta+Shift+Right
+
+  warn "Tiling bound (live, no logout needed): Ctrl+Meta+Up/Down = maximize/minimize,"
+  warn "  Ctrl+Meta+Left = 2/3 left, +Shift = 2/3 right; Ctrl+Meta+Right = 1/3 right, +Shift = 1/3 left."
+  warn "Virtual-desktop switching on Ctrl+Meta+arrows was cleared to free those keys."
+  warn "Monitor-move is already Meta+Shift+Left/Right (move window to next/prev screen)."
+}
+
+# ---------------------------------------------------------------------------
+# 12d. Dictation: Voxtype (local speech-to-text - the tool Omarchy 3.3 ships).
+#      Its built-in evdev hotkey works on KDE Plasma 6 Wayland because it reads
+#      the key at the kernel level (no compositor support needed); wtype types
+#      the result into the focused window. The versioned config
+#      (~/.config/voxtype/config.toml) selects the Parakeet engine (multilingual
+#      en+pl, F16 toggle). Parakeet runs on the ONNX binary and, on this NVIDIA
+#      box, CUDA - both switched on below (gpu enable no-ops to CPU elsewhere).
+# ---------------------------------------------------------------------------
+setup_dictation() {
+  command -v dnf >/dev/null || { warn "No dnf; skipping Voxtype."; return; }
+  msg "Voxtype (local Whisper dictation)"
+
+  # Typing backends + clipboard fallback + notifications. wtype is Voxtype's
+  # first choice but fails under KWin (no virtual-keyboard protocol), so ydotool
+  # (kernel uinput) is the one that actually works on KDE - set up below.
+  sudo dnf install -y wtype ydotool wl-clipboard libnotify || warn "Optional Voxtype deps failed."
+
+  if rpm -q voxtype >/dev/null 2>&1; then
+    warn "Voxtype already installed; leaving it."
+  else
+    # The 'latest' tag is macOS-only for the 1.0 line, so pick the newest release
+    # that actually ships an x86_64 RPM rather than trusting 'latest'.
+    local rpm_url=""
+    rpm_url="$(curl -fsSL 'https://api.github.com/repos/peteonrails/voxtype/releases?per_page=30' 2>/dev/null \
+      | grep -oE 'https://[^"]*/voxtype-[0-9][^"]*\.x86_64\.rpm' | head -1)" || true
+    if [ -z "$rpm_url" ]; then
+      warn "No Voxtype x86_64 RPM found; install manually from https://voxtype.io/docs/"
+      return
+    fi
+    local tmp
+    tmp="$(mktemp -d)"
+    if curl -fsSL "$rpm_url" -o "$tmp/voxtype.rpm"; then
+      sudo dnf install -y "$tmp/voxtype.rpm" || warn "Voxtype RPM install failed."
+    else
+      warn "Voxtype RPM download failed."
+    fi
+    rm -rf "$tmp"
+  fi
+
+  command -v voxtype >/dev/null || { warn "voxtype not on PATH; skipping config."; return; }
+
+  # The built-in evdev hotkey needs the user in the 'input' group to read keys.
+  if ! id -nG "$USER" 2>/dev/null | tr ' ' '\n' | grep -qx input; then
+    if sudo usermod -aG input "$USER"; then
+      warn "Added you to the 'input' group - log out/in for the hotkey to work."
+    else
+      warn "Could not add you to 'input'; the built-in hotkey needs it."
+    fi
+  fi
+
+  # Deploy the versioned config from the repo if it isn't already in place (on
+  # a deployed-dotfiles machine it's already at ~/.config/voxtype/config.toml).
+  # The engine/GPU switch + model download below then bring it online.
+  local vcfg="$CONFIG_HOME/voxtype/config.toml"
+  if [ ! -f "$vcfg" ]; then
+    if install -Dm644 "$SCRIPT_DIR/../voxtype/config.toml" "$vcfg" 2>/dev/null; then
+      warn "Installed voxtype config -> $vcfg"
+    else
+      warn "Couldn't deploy voxtype config from the repo; see .config/voxtype/config.toml."
+    fi
+  fi
+
+  # KWin doesn't implement the virtual-keyboard protocol, so wtype (Voxtype's
+  # first typing backend) fails and text only reaches the clipboard. ydotool
+  # injects via the kernel's uinput, which works under KWin. Run ydotoold as a
+  # user service (a Steam/uaccess udev rule already grants rw on /dev/uinput)
+  # and point the ydotool client - which Voxtype invokes - at its socket.
+  if command -v ydotoold >/dev/null; then
+    install -d "$CONFIG_HOME/systemd/user" "$CONFIG_HOME/environment.d"
+    cat > "$CONFIG_HOME/systemd/user/ydotoold.service" <<'EOF'
+[Unit]
+Description=ydotoold - uinput input daemon (Wayland text injection for Voxtype)
+
+[Service]
+ExecStart=/usr/bin/ydotoold --socket-path=%t/.ydotool_socket
+Restart=always
+
+[Install]
+WantedBy=default.target
+EOF
+    cat > "$CONFIG_HOME/environment.d/ydotool.conf" <<'EOF'
+# Let the ydotool client (invoked by voxtype) find the user ydotoold socket.
+YDOTOOL_SOCKET=${XDG_RUNTIME_DIR}/.ydotool_socket
+EOF
+    systemctl --user daemon-reload 2>/dev/null || true
+    systemctl --user enable --now ydotoold 2>/dev/null \
+      || warn "Start ydotoold later: systemctl --user enable --now ydotoold"
+    systemctl --user set-environment \
+      YDOTOOL_SOCKET="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/.ydotool_socket" 2>/dev/null || true
+  else
+    warn "ydotool not installed; Voxtype will only reach the clipboard under KWin."
+  fi
+
+  # Parakeet runs on the ONNX binary (not the default Whisper one). Its GPU
+  # binaries (CUDA/MIGraphX) are built with AVX-512, so on an AVX2-only CPU
+  # (like this box) `gpu --enable` fails and Parakeet runs on CPU - which is
+  # plenty fast for short dictation. Binaries live under /usr, so the switch
+  # needs sudo. (All best-effort - downloads are large, service needs your
+  # live user session. For GPU here you'd use Whisper+Vulkan instead.)
+  sudo voxtype setup onnx --enable || warn "ONNX switch failed; run: sudo voxtype setup onnx --enable"
+  sudo voxtype setup gpu --enable  || warn "GPU enable failed (staying on CPU); run: sudo voxtype setup gpu --enable"
+  voxtype setup --download --model parakeet-tdt-0.6b-v3 \
+    || warn "Model download failed; run: voxtype setup --download --model parakeet-tdt-0.6b-v3"
+  voxtype setup vad >/dev/null 2>&1 || warn "VAD model download failed; run: voxtype setup vad"
+  voxtype setup systemd >/dev/null 2>&1 || true
+  systemctl --user enable --now voxtype 2>/dev/null \
+    || warn "Enable later with: systemctl --user enable --now voxtype"
+
+  warn "Test: tap your dictation key (F16 / the Keychron mic key), speak, tap again - it types into the focused window."
+}
+
+# ---------------------------------------------------------------------------
+# 13. Shell: switch the login shell to zsh and set the per-machine overlay.
+#     ~/.customenv is untracked; RZR_PREFIX=/usr points .zshrc at the Fedora
+#     paths for zsh-syntax-highlighting/completions (no Homebrew here).
+# ---------------------------------------------------------------------------
+setup_zsh() {
+  msg "zsh as login shell + ~/.customenv overlay"
+  grep -qs 'RZR_PREFIX' "$HOME/.customenv" 2>/dev/null \
+    || echo 'export RZR_PREFIX=/usr' >> "$HOME/.customenv"
+  if [ "$(getent passwd "$USER" | cut -d: -f7)" != /usr/bin/zsh ]; then
+    chsh -s /usr/bin/zsh
+    warn "Log out and back in for zsh to take effect."
+  fi
+}
+
+# --- run order -------------------------------------------------------------
+main() {
+  # Cache sudo and keep it alive for the whole run.
+  sudo -v
+  ( while true; do sudo -n true; sleep 50; kill -0 "$$" 2>/dev/null || exit; done ) 2>/dev/null &
+
+  setup_grub
+  setup_dnf
+  setup_repos
+  setup_packages
+  setup_nvidia
+  setup_codecs
+  setup_services
+  setup_mise
+  setup_flatpaks
+  setup_steam
+  setup_jetbrains
+  setup_fonts
+  setup_keyd
+  setup_via
+  setup_kde
+  setup_window_tiling
+  setup_dictation
+  setup_zsh
+
+  msg "Done. Reboot to load the NVIDIA driver and apply the kernel arg change."
+}
+
+# Run the full sequence only when executed directly. When sourced
+# (`source setup_linux`) the functions are defined but nothing runs, so you can
+# test one stage at a time, e.g. in a subshell:
+#     bash -c 'source ./setup_linux; setup_dnf; setup_repos; setup_packages'
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+  main "$@"
+fi
