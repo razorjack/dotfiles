@@ -36,6 +36,11 @@ mise_shims="${MISE_DATA_DIR:-$HOME/.local/share/mise}/shims"
 [ -d "$mise_shims" ] && export PATH="$mise_shims:$PATH"
 unset mise_shims
 
-jetbrains_scripts="$HOME/Library/Application Support/JetBrains/Toolbox/scripts"
-[ -d "$jetbrains_scripts" ] && export PATH="$PATH:$jetbrains_scripts"
+# JetBrains Toolbox per-IDE CLI launchers (rubymine, idea, ...). macOS puts
+# them under Library; Linux under XDG data. Each guarded, so inert where absent.
+for jetbrains_scripts in \
+  "$HOME/Library/Application Support/JetBrains/Toolbox/scripts" \
+  "$HOME/.local/share/JetBrains/Toolbox/scripts"; do
+  [ -d "$jetbrains_scripts" ] && export PATH="$PATH:$jetbrains_scripts"
+done
 unset jetbrains_scripts
