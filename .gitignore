@@ -34,6 +34,7 @@
 !/.config/git/
 !/.config/ideavim/
 !/.config/irb/
+!/.config/keyd/
 !/.config/kitty/
 !/.config/linearmouse/
 !/.config/pry/
