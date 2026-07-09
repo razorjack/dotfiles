@@ -139,5 +139,10 @@ case "$OSTYPE" in
     ;;
   linux*)
     alias ls="ls --color=auto"
+    # Bring macOS clipboard muscle memory to Wayland (from wl-clipboard).
+    if command -v wl-copy >/dev/null 2>&1; then
+      alias pbcopy='wl-copy'
+      alias pbpaste='wl-paste'
+    fi
     ;;
 esac
