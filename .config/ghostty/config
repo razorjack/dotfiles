@@ -31,6 +31,11 @@ cursor-color = #73b7f2
 split-divider-color = #b3b1ad
 cursor-style-blink = false
 cursor-opacity = 1.0
+# Solid block cursor (drawn in cursor-color above). Ghostty's shell integration
+# otherwise forces a thin bar at the shell prompt - the "dim pipe" - so disable
+# just that feature (no-cursor) and keep the rest (title, sudo).
+cursor-style = block
+shell-integration-features = no-cursor
 
 macos-titlebar-style = tabs
 keybind = shift+enter=text:\x1b\r
