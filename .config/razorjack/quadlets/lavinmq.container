@@ -1,0 +1,17 @@
+[Unit]
+Description=LavinMQ (RabbitMQ replacement, dev, rootless container)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/cloudamqp/lavinmq:latest
+ContainerName=lavinmq
+PublishPort=127.0.0.1:5672:5672
+PublishPort=127.0.0.1:15672:15672
+Volume=lavinmqdata:/var/lib/lavinmq
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

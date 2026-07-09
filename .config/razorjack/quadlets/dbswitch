@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# dbswitch - flip a dev service between native (dnf/systemd) and a rootless
+# podman container (Quadlet). Native is the default from setup_linux; these
+# quadlets sit inert until you activate one here.
+#
+# The two modes share a TCP port, so never run both at once - this stops one
+# before starting the other. IMPORTANT: data is NOT shared between modes
+# (native lives under /var/lib, the container in a podman named volume). Use
+# pg_dump / mongodump etc. if you need the data to move with you.
+
+QUADLET_SRC="${XDG_CONFIG_HOME:-$HOME/.config}/razorjack/quadlets"
+QUADLET_DST="${XDG_CONFIG_HOME:-$HOME/.config}/containers/systemd"
+SERVICES="postgres valkey mongodb memcached lavinmq"
+
+# service name -> the native systemd unit dnf installs
+native_unit() {
+  case "$1" in
+    postgres)  echo postgresql ;;
+    valkey)    echo valkey ;;
+    mongodb)   echo mongod ;;
+    memcached) echo memcached ;;
+    lavinmq)   echo lavinmq ;;
+    *) return 1 ;;
+  esac
+}
+
+usage() {
+  cat <<EOF
+Usage: dbswitch <service> <native|container>
+       dbswitch status
+
+Services: $SERVICES
+
+Data is per-mode and is NOT migrated on switch. Dump/restore if you need it.
+EOF
+}
+
+cmd="${1:-}"
+
+if [ "$cmd" = status ]; then
+  for s in $SERVICES; do
+    nu="$(native_unit "$s")"
+    if systemctl --user is-active --quiet "$s.service" 2>/dev/null; then
+      printf '%-10s container\n' "$s"
+    elif systemctl is-active --quiet "$nu.service" 2>/dev/null; then
+      printf '%-10s native\n' "$s"
+    else
+      printf '%-10s stopped\n' "$s"
+    fi
+  done
+  exit 0
+fi
+
+svc="$cmd"; mode="${2:-}"
+[ -n "$svc" ] && [ -n "$mode" ] || { usage; exit 1; }
+nu="$(native_unit "$svc")" || { echo "Unknown service: $svc" >&2; usage; exit 1; }
+qfile="$QUADLET_SRC/$svc.container"
+[ -f "$qfile" ] || { echo "No quadlet at $qfile" >&2; exit 1; }
+
+# Rootless containers only start at boot if the user lingers.
+loginctl enable-linger "$USER" >/dev/null 2>&1 || true
+
+case "$mode" in
+  container)
+    echo "Stopping native $nu ..."
+    sudo systemctl disable --now "$nu.service" 2>/dev/null || true
+    mkdir -p "$QUADLET_DST"
+    cp "$qfile" "$QUADLET_DST/"
+    systemctl --user daemon-reload
+    systemctl --user start "$svc.service"
+    echo "$svc is now a rootless container (systemctl --user status $svc)."
+    ;;
+  native)
+    echo "Stopping container $svc ..."
+    systemctl --user stop "$svc.service" 2>/dev/null || true
+    rm -f "$QUADLET_DST/$svc.container"
+    systemctl --user daemon-reload
+    sudo systemctl enable --now "$nu.service"
+    echo "$svc is now native ($nu)."
+    ;;
+  *) usage; exit 1 ;;
+esac

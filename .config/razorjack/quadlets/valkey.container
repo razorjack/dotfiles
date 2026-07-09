@@ -1,0 +1,18 @@
+[Unit]
+Description=Valkey (Redis-compatible, dev, rootless container)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+# Redis-compatible on 6379; swap for docker.io/library/redis:7 if you prefer.
+Image=docker.io/valkey/valkey:8
+ContainerName=valkey
+PublishPort=127.0.0.1:6379:6379
+Volume=valkeydata:/data
+Exec=valkey-server --appendonly yes
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

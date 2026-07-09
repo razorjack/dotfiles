@@ -1,0 +1,19 @@
+[Unit]
+Description=MongoDB 7 (dev, rootless container)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+# The reason this whole quadlet set exists: Mongo has no official Fedora
+# package, so a container is the clean path. Pinned to 7 to match macOS.
+Image=docker.io/library/mongo:7
+ContainerName=mongodb
+PublishPort=127.0.0.1:27017:27017
+Volume=mongodata:/data/db
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

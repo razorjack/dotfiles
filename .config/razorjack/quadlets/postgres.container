@@ -1,0 +1,25 @@
+[Unit]
+Description=PostgreSQL 16 (dev, rootless container)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+# Pinned to 16 to match the macOS postgresql@16. Bump the tag to upgrade; a
+# major-version jump still needs pg_upgrade or dump/restore (on-disk format).
+Image=docker.io/library/postgres:16
+ContainerName=postgres
+# Loopback-only, so trust auth below is safe for local dev.
+PublishPort=127.0.0.1:5432:5432
+Volume=pgdata:/var/lib/postgresql/data
+Environment=POSTGRES_HOST_AUTH_METHOD=trust
+# To mirror native peer auth (connect as your own role), uncomment:
+# Environment=POSTGRES_USER=razorjack
+# Environment=POSTGRES_DB=razorjack
+
+[Service]
+Restart=always
+# First start pulls the image; give it room.
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

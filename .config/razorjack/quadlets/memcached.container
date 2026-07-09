@@ -1,0 +1,16 @@
+[Unit]
+Description=Memcached (dev, rootless container)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/library/memcached:1.6
+ContainerName=memcached
+PublishPort=127.0.0.1:11211:11211
+Exec=memcached -m 256
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
