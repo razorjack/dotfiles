@@ -1,0 +1,69 @@
+# Voxtype - local, offline speech-to-text. Tap a key, speak, and it types into
+# the focused window. The dictation tool Omarchy 3.3 ships; runs fully on-device
+# (no cloud). Full annotated schema lives at /etc/voxtype/config.toml.
+# Docs: https://voxtype.io/docs/    Switch engine safely: `voxtype config set engine whisper`
+
+# Parakeet (NVIDIA FastConformer via ONNX): fast, accurate, multilingual
+# (English + Polish among 25 European languages), and the engine that uses my
+# RTX 3070 Ti's CUDA. "whisper" is the most-compatible fallback (Vulkan-only on
+# NVIDIA). Download the model with: voxtype setup --download --model parakeet-tdt-0.6b-v3
+engine = "parakeet"
+
+# Required for `voxtype record toggle` and `voxtype status`.
+state_file = "auto"
+
+[hotkey]
+# Built-in evdev hotkey (kernel level - works on KDE Plasma 6 Wayland, where a
+# compositor keybind can't see key-release). Needs 'input' group membership,
+# which setup_dictation grants. F16 = my Keychron Q3 Max mic key, remapped in
+# VIA; toggle = tap once to start recording, tap again to stop and transcribe.
+# (F13 collided with a KDE default that opened System Settings; F16-F24 are
+# inert, so the key reaches Voxtype only.)
+enabled = true
+key = "F16"
+modifiers = []
+mode = "toggle"
+
+[audio]
+device = "default"
+sample_rate = 16000
+# 10-minute cap (was 60s) so a long dictation/rant isn't truncated mid-sentence.
+max_duration_secs = 600
+
+[audio.feedback]
+# Beep when recording starts/stops - an instant cue so an accidental toggle
+# never records silently.
+enabled = true
+
+[parakeet]
+# Multilingual TDT model (proper punctuation). Lands in
+# ~/.local/share/voxtype/models/ once downloaded.
+model = "parakeet-tdt-0.6b-v3"
+
+[whisper]
+# Fallback engine (only used when engine = "whisper"). base is multilingual;
+# "auto" detects the spoken language (English or Polish here).
+model = "base"
+language = "auto"
+translate = false
+on_demand_loading = false
+
+[output]
+# Type at the cursor via wtype; fall back to clipboard if typing fails.
+mode = "type"
+fallback_to_clipboard = true
+type_delay_ms = 0
+pre_type_delay_ms = 0
+
+[output.notification]
+# KDE popups on start/stop (paired with the beeps) so an accidental toggle is
+# obvious, plus the transcribed text when it lands. (The Quickshell OSD is a
+# POC on this build - no audio-bridge/GTK4 binary shipped - so notifications
+# are the clean indicator here. For a persistent one, a Plasma panel widget
+# polling `voxtype status` is the KDE-native option.)
+on_recording_start = true
+on_recording_stop = true
+on_transcription = true
+
+[status]
+icon_theme = "emoji"

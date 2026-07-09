@@ -80,6 +80,11 @@
 !/.config/vim/vimrc
 !/.config/vim/colors/
 
+# voxtype: track only the config; it also stores downloaded Whisper models here
+!/.config/voxtype/
+/.config/voxtype/*
+!/.config/voxtype/config.toml
+
 !/.config/zsh/
 /.config/zsh/.zcompdump*
 /.config/zsh/.zsh_sessions/
