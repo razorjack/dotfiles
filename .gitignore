@@ -105,3 +105,8 @@
 # scaling, window decorations) that must never reach macOS. Ghostty's dir is
 # already tracked selectively; kitty's is wholesale, so re-ignore its local file.
 /.config/kitty/linux-local.conf
+
+# keyd-application-mapper writes these into its config dir at runtime; keyd's
+# dir is tracked wholesale, so re-ignore them.
+/.config/keyd/app.lock
+/.config/keyd/app.log
