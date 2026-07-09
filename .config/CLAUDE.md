@@ -46,6 +46,17 @@ Quick reference for common configurations:
   - Primary: ghostty
   - Secondary: kitty
 
+### Terminal Config: Linux/KDE Machine-Local Overrides
+
+The `ghostty` and `kitty` configs are **shared across macOS + Linux**. KDE Plasma 6 uses 1.5 *fractional* scaling, which renders fonts and GTK chrome ~1.3x larger than macOS's "150%" HiDPI (macOS supersamples then downscales). There is **no per-app scaling on Plasma 6 Wayland** (Wayland core is integer-only), so the fix is to shrink the font + chrome, and it must be Linux-only.
+
+Cross-platform keys (`font-size`, `window-decoration`) can't differ per-OS in the shared config, so Linux tweaks live in **untracked, git-ignored, machine-local files** (like `~/.customenv`), pulled in by an inert include line in the shared config:
+
+- **Ghostty**: shared `config` ends with `config-file = ?linux.conf` (no-op on macOS - optional missing file). `~/.config/ghostty/linux.conf` (untracked) sets `font-size`, `window-decoration = none`, and `gtk-custom-css = ghostty-linux.css`; `~/.config/ghostty/ghostty-linux.css` (untracked) shrinks the GTK tab bar. Ghostty's dir is tracked selectively (only `config`), so these are auto-ignored.
+- **Kitty**: shared `kitty.conf` ends with `globinclude linux-local.conf` (no-op on macOS - silent when absent). `~/.config/kitty/linux-local.conf` (untracked) sets `font_size`. Kitty's dir is tracked wholesale, so `/.config/kitty/linux-local.conf` is explicitly re-ignored in `.gitignore`.
+
+Rule of thumb: platform-prefixed keys (`macos-*`, `gtk-*`) are inert on the other OS and may go in the shared config; genuinely cross-platform keys that must differ go in the machine-local files. These local files are Linux-only and not reproducible from the repo (a fresh install re-creates them by hand or via `setup_linux`).
+
 ### Shell Loading Chain
 
 **`~/.profile`** is a thin loader: it sources the shared `~/.config/shell/common.sh`, then the per-OS fragment (`darwin.sh` on macOS, `linux.sh` on Linux) chosen by `uname -s`. All three **must stay bash-compatible** (sourced by both zsh and bash) – no zsh-only syntax like glob qualifiers.
