@@ -99,6 +99,7 @@
 /.local/*
 !/.local/bin/
 /.local/bin/*
+!/.local/bin/yadm
 !/.local/bin/za
 
 # Machine-local terminal overrides: Linux-only tweaks (font-size for fractional
