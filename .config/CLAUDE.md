@@ -1,6 +1,6 @@
 # Dotfiles Configuration Guide
 
-> **The repo's worktree is `$HOME`**, managed by **yadm** (git dir: `~/.local/share/yadm/repo.git` – there is no `~/.git`). Never walk, glob, or recursively search the home directory. Use `yadm ls-files` to enumerate the repo. A normal git clone for authoring lives at `~/Projects/dotfiles`.
+> **The repo's worktree is `$HOME`**, managed by **yadm** (git dir: `~/.local/share/yadm/repo.git` – there is no `~/.git`). Never walk, glob, or recursively search the home directory. Use `yadm ls-files` to enumerate the repo. A plain git clone of the same repo, at any location, may be used for authoring; if you are working in one now (the cwd is a dotfiles checkout that is not `$HOME`), that's it.
 
 ## Strict Rules
 
@@ -19,7 +19,7 @@
 - **Git Strategy**: This repo uses a whitelist approach – everything is ignored by default (`/*`), and tracked paths are re-included with `!` chains in `.gitignore`
 - **yadm**: `$HOME` is the worktree; the git dir is `~/.local/share/yadm/repo.git`. Use `yadm <git-subcommand>` for all repo operations in `$HOME` (`yadm status`, `yadm add`, `yadm diff`, ...). The `yadm` binary is vendored in the repo at `~/.local/bin/yadm`. `yadm status` hides untracked files (`status.showUntrackedFiles no`); use `yadm status -uall` when adding something new.
 - **OS divergence**: files that must differ per OS are yadm *alternates* – `file##os.Linux` (and `##os.Darwin` if ever needed). On a matching machine, yadm creates the plain `file` as a symlink to the variant; on the other OS the plain name simply doesn't exist. All variants are checked out on every machine – only the symlink is conditional.
-- **Authoring clone**: `~/Projects/dotfiles` is a plain git checkout of the same repo (no yadm, so no symlinks – alternates are just files). Prefer it for agent-driven or multi-file work; sync via push/pull (`yadm pull` in `$HOME`).
+- **Authoring clone (optional)**: a plain git checkout of the same repo may exist at any location – even an ephemeral one (clone, work, push, delete). No yadm runs there, so no symlinks: alternates are just files. Prefer such a clone for agent-driven or multi-file work; sync via push/pull (`yadm pull` in `$HOME`). Its location is never referenced by any script or config, so it can move freely.
 - **Brewfile Location**: `~/.config/razorjack/Brewfile` (not `~/Brewfile` - follows XDG organization)
 
 ### Adding New Files to Git
@@ -34,8 +34,8 @@ Verify with `git check-ignore -v <path>`: no output means not ignored; output st
 
 Two equivalent routes; both end in git, never in copying files between the trees:
 
-- **Live in `$HOME`**: edit the file (for an alternate: the `##os.Linux` variant, never the plain-name symlink), then `yadm add <path> && yadm commit`. After the user pushes, `git pull` in `~/Projects/dotfiles` catches the authoring clone up.
-- **In `~/Projects/dotfiles`** (preferred for agent-driven or multi-file work): edit, `git add`, `git commit`. After the user pushes, `yadm pull` in `$HOME` deploys it (and re-runs `yadm alt`).
+- **Live in `$HOME`**: edit the file (for an alternate: the `##os.Linux` variant, never the plain-name symlink), then `yadm add <path> && yadm commit`. After the user pushes, any authoring clone catches up with `git pull`.
+- **In an authoring clone** (preferred for agent-driven or multi-file work): edit, `git add`, `git commit`. After the user pushes, `yadm pull` in `$HOME` deploys it (and re-runs `yadm alt`).
 
 The old workflow of mirroring edits into `$HOME` by hand is retired – a hand-copied file can silently replace a yadm-generated symlink and break an alternate.
 

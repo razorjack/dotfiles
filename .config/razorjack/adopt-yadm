@@ -7,7 +7,7 @@ set -euo pipefail
 #     adopt-yadm [<pull-source> [<branch>]]
 # <pull-source> defaults to origin; on a machine whose checkout can't see the
 # migration commit yet, pass a local clone, e.g.:
-#     ~/Projects/dotfiles/.config/razorjack/adopt-yadm ~/Projects/dotfiles master
+#     <clone>/.config/razorjack/adopt-yadm <clone> master
 
 PULL_FROM="${1:-origin}"
 PULL_REF="${2:-master}"
