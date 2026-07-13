@@ -19,12 +19,30 @@ if [ "$(id -u)" -eq 0 ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 0. Thunderbolt 3 dock: keep the dock's ethernet from dropping.
-#    The Elgato TB3 dock tunnels its NIC over PCIe; iommu=pt makes it flap.
+# 0. Thunderbolt 3 dock ethernet. The Elgato TB3 Pro dock's Intel I210 is
+#    tunneled over PCIe, and under the AMD IOMMU's default DMA-translation mode
+#    the NIC's transmit DMA is blocked: igb hits a Tx-queue watchdog timeout and
+#    resets the adapter every ~10s, so the link flaps and DHCP never completes.
+#    iommu=pt gives the NIC identity-mapped DMA and the link stays up.
+#
+#    grubby alone is NOT enough: it only patches the kernel entries that exist
+#    at the time, so the next kernel update installs an entry without the arg and
+#    ethernet silently breaks again. /etc/default/grub is the master source and
+#    /etc/kernel/cmdline is the template kernel-install copies for each new
+#    kernel; both must carry the arg for it to survive kernel updates.
 # ---------------------------------------------------------------------------
 setup_grub() {
-  msg "Removing iommu=pt (Thunderbolt dock ethernet stability)"
-  sudo grubby --update-kernel=ALL --remove-args="iommu=pt"
+  msg "Adding iommu=pt (Thunderbolt dock ethernet)"
+
+  grep -q 'iommu=pt' /etc/default/grub \
+    || sudo sed -i 's/^GRUB_CMDLINE_LINUX="/GRUB_CMDLINE_LINUX="iommu=pt /' /etc/default/grub
+
+  if [ -f /etc/kernel/cmdline ]; then
+    grep -q 'iommu=pt' /etc/kernel/cmdline \
+      || sudo sed -i '1 s/$/ iommu=pt/' /etc/kernel/cmdline
+  fi
+
+  sudo grubby --update-kernel=ALL --args="iommu=pt"
   warn "Takes effect on next reboot."
 }
 
