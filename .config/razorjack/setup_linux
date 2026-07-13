@@ -183,7 +183,9 @@ setup_codecs() {
 setup_services() {
   msg "PostgreSQL (native)"
   sudo dnf install -y postgresql-server postgresql-contrib
-  [ -f /var/lib/pgsql/data/PG_VERSION ] || sudo postgresql-setup --initdb
+  # The data dir is 0700 postgres-owned, so a plain [ -f ] can't see PG_VERSION
+  # and would re-run initdb (which aborts on a non-empty dir). Test as root.
+  sudo test -f /var/lib/pgsql/data/PG_VERSION || sudo postgresql-setup --initdb
   sudo systemctl enable --now postgresql
   warn "Create your dev role once:  sudo -u postgres createuser -s $USER"
 
