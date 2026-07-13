@@ -318,7 +318,9 @@ setup_fonts() {
     curl -fsSL https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Iosevka.zip \
       -o "$tmp/iosevka.zip"
     mkdir -p "$fdir/IosevkaNerdFont"
-    unzip -q "$tmp/iosevka.zip" -d "$fdir/IosevkaNerdFont"
+    # -o: overwrite without prompting; the fc-list guard can miss (stale font
+    # cache after an interrupted run) and unzip must never block on input.
+    unzip -oq "$tmp/iosevka.zip" -d "$fdir/IosevkaNerdFont"
     rm -rf "$tmp"
   fi
 
