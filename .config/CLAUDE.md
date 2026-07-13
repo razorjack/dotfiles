@@ -5,6 +5,7 @@
 ## Strict Rules
 
 - **NEVER push to git**: Do not run `git push` or `yadm push` under any circumstances. Commits can be created when requested, but pushing to remote is strictly forbidden.
+- **Short commit messages**: a concise title, no body unless the change genuinely needs explanation. Never write multi-paragraph commit descriptions.
 - **In `$HOME`, never edit through a yadm-generated symlink** (e.g. `~/.config/ghostty/linux.conf`): editors that save via rename replace the symlink with a regular file, and the next yadm command silently clobbers it. Edit the `##os.Linux` variant file instead.
 
 ## System Requirements
