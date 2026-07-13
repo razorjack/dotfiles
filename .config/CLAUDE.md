@@ -30,6 +30,15 @@ Add a `!` re-include chain to `~/.gitignore` for the new path, re-including ever
 
 Verify with `git check-ignore -v <path>`: no output means not ignored; output starting with `!` means re-included (tracked-eligible). Confirm with `git add --dry-run <path>`.
 
+### Making a Change
+
+Two equivalent routes; both end in git, never in copying files between the trees:
+
+- **Live in `$HOME`**: edit the file (for an alternate: the `##os.Linux` variant, never the plain-name symlink), then `yadm add <path> && yadm commit`. After the user pushes, `git pull` in `~/Projects/dotfiles` catches the authoring clone up.
+- **In `~/Projects/dotfiles`** (preferred for agent-driven or multi-file work): edit, `git add`, `git commit`. After the user pushes, `yadm pull` in `$HOME` deploys it (and re-runs `yadm alt`).
+
+The old workflow of mirroring edits into `$HOME` by hand is retired – a hand-copied file can silently replace a yadm-generated symlink and break an alternate.
+
 ## Configuration File Locations
 
 Quick reference for common configurations:
