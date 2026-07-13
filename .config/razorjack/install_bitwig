@@ -1,0 +1,223 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Install/upgrade Bitwig Studio on Fedora by repackaging the official .deb as
+# an RPM (dnf owns the files, so upgrades and uninstalls are clean). Bitwig
+# ships no rpm; the .deb has no maintainer scripts, so a straight repack is
+# safe. Standalone on purpose - not part of setup_linux; run it only on
+# machines that need Bitwig. Idempotent: skips when the target version is
+# already installed.
+#
+# Usage:
+#   install_bitwig                    # latest stable
+#   install_bitwig 6.0.5              # specific stable version
+#   install_bitwig --beta             # latest public beta (auto-probed)
+#   install_bitwig --beta 6.2         # latest beta of a given series
+#   install_bitwig --beta "6.1 Beta 3"  # exact beta version
+#   install_bitwig path/to/file.deb   # local .deb (e.g. manually downloaded)
+#   install_bitwig --force ...        # reinstall even if already current
+
+msg()  { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
+warn() { printf '\033[1;33m    ! %s\033[0m\n' "$*"; }
+die()  { printf '\033[1;31mERROR: %s\033[0m\n' "$*" >&2; exit 1; }
+
+DL_BASE='https://www.bitwig.com/dl/Bitwig%20Studio'
+
+url_for() { printf '%s/%s/installer_linux/' "$DL_BASE" "${1// /%20}"; }
+
+# The /dl/ endpoint 302s a signed CDN URL for ANY version string, even ones
+# that don't exist; only the redirect target's status reveals existence.
+version_exists() {
+  [ "$(curl -sIL -o /dev/null -w '%{http_code}' "$(url_for "$1")")" = 200 ]
+}
+
+latest_stable() {
+  curl -fsSL https://www.bitwig.com/download/ \
+    | grep -oE '/dl/Bitwig%20Studio/[0-9.]+/installer_linux/' \
+    | sed -E 's|.*Studio/([0-9.]+)/.*|\1|' | head -1
+}
+
+latest_beta_in_series() {  # $1 = series like "6.1"; prints "6.1 Beta 4"
+  local n=1 found=""
+  while [ "$n" -le 40 ] && version_exists "$1 Beta $n"; do
+    found="$1 Beta $n"
+    n=$((n + 1))
+  done
+  [ -n "$found" ] && printf '%s' "$found"
+}
+
+latest_beta() {
+  local stable major minor series beta
+  stable="$(latest_stable)"
+  [ -n "$stable" ] || die "Could not determine latest stable version."
+  major="${stable%%.*}"
+  minor="${stable#*.}"; minor="${minor%%.*}"
+  # Betas run ahead of stable: try the next minor, then the next major.
+  for series in "${major}.$((minor + 1))" "$((major + 1)).0"; do
+    if beta="$(latest_beta_in_series "$series")"; then
+      printf '%s' "$beta"
+      return 0
+    fi
+  done
+  return 1
+}
+
+rpm_version() {  # "6.1 Beta 4" -> "6.1~beta4" (~ sorts before the release)
+  local v
+  v="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+  v="$(printf '%s' "$v" | sed -E 's/[ .-]*beta[ .-]*/~beta/')"
+  printf '%s' "${v// /.}" | tr - .
+}
+
+deb_control_version() {  # read Version: from a local .deb
+  local work
+  work="$(mktemp -d)"
+  (cd "$work" && ar x "$1" && tar -xOf control.tar.* ./control) \
+    | sed -n 's/^Version: *//p' | head -1
+  rm -rf "$work"
+}
+
+build_rpm() {  # $1 = .deb path, $2 = rpm version; prints resulting .rpm path
+  local deb="$1" rpmver="$2" work data spec
+  work="$(mktemp -d /var/tmp/bitwig-rpm.XXXXXX)"
+
+  (cd "$work" && ar x "$deb")
+  data="$(ls "$work"/data.tar.*)"
+  mkdir -p "$work/root"
+  tar -xf "$data" -C "$work/root"
+
+  spec="$work/bitwig-studio.spec"
+  cat > "$spec" <<EOF
+%global __os_install_post %{nil}
+%global debug_package %{nil}
+%define _build_id_links none
+%define _unpackaged_files_terminate_build 0
+
+Name: bitwig-studio
+Version: $rpmver
+Release: 1
+Summary: Music production and performance system
+License: Proprietary
+URL: https://www.bitwig.com
+AutoReqProv: no
+Requires: pipewire-jack-audio-connection-kit
+Requires: xdg-utils
+
+%description
+Bitwig Studio, repackaged from the official .deb by install_bitwig.
+
+%install
+mkdir -p %{buildroot}
+cp -a $work/root/. %{buildroot}/
+
+%files
+/opt/bitwig-studio
+EOF
+
+  # Everything outside /opt: files and symlinks only. Never package directory
+  # entries - system dirs like /usr/bin are owned by the filesystem package
+  # with different modes (0555 vs the deb's 0755), and co-owning them makes
+  # the rpm transaction fail with a file conflict.
+  tar -tf "$data" | sed 's|^\./||;/^$/d' | grep -v '^opt' | grep -v '/$' \
+    | sed 's|^|/|' >> "$spec"
+
+  rpmbuild -bb \
+    --define "_topdir $work/rpm" \
+    --define "_binary_payload w2T0.zstdio" \
+    "$spec" > "$work/rpmbuild.log" 2>&1 \
+    || { tail -25 "$work/rpmbuild.log" >&2; die "rpmbuild failed (log: $work/rpmbuild.log)"; }
+
+  # Move the RPM out and drop the ~700 MB build tree before dnf runs.
+  local built out
+  built="$(find "$work/rpm/RPMS" -name '*.rpm' | head -1)"
+  [ -n "$built" ] || die "rpmbuild produced no RPM."
+  out="/var/tmp/$(basename "$built")"
+  mv "$built" "$out"
+  rm -rf "$work"
+  printf '%s' "$out"
+}
+
+main() {
+  local mode=stable req="" deb="" force=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --beta)     mode=beta ;;
+      --force)    force=1 ;;
+      -h|--help)  sed -n '4,20p' "${BASH_SOURCE[0]}"; exit 0 ;;
+      *.deb)      deb="$1" ;;
+      [0-9]*)     req="$1" ;;
+      *)          die "Unknown argument: $1" ;;
+    esac
+    shift
+  done
+
+  [ "$(id -u)" -ne 0 ] || die "Run as your normal user; sudo is used where needed."
+  command -v dnf >/dev/null || die "This script is for Fedora/RPM-based systems."
+
+  for tool in ar rpmbuild zstd; do
+    command -v "$tool" >/dev/null || {
+      msg "Installing build tools (binutils, rpm-build, zstd)"
+      sudo dnf install -y binutils rpm-build zstd
+      break
+    }
+  done
+
+  local version="" rpmver
+  if [ -n "$deb" ]; then
+    [ -f "$deb" ] || die "No such file: $deb"
+    deb="$(realpath "$deb")"
+    version="$(deb_control_version "$deb")"
+    [ -n "$version" ] || die "Could not read a version from $deb"
+    msg "Local .deb: version $version"
+  elif [ "$mode" = beta ]; then
+    case "$req" in
+      *[Bb]eta*) version="$req" ;;
+      "")        version="$(latest_beta)" || die "No public beta found; pass a series (--beta 6.2) or a local .deb." ;;
+      *)         version="$(latest_beta_in_series "$req")" || die "No beta found in the $req series." ;;
+    esac
+    msg "Latest beta: $version"
+  else
+    if [ -n "$req" ]; then
+      version="$req"
+      version_exists "$version" || die "Version '$version' not found on bitwig.com."
+    else
+      version="$(latest_stable)"
+      [ -n "$version" ] || die "Could not determine latest stable version."
+    fi
+    msg "Target stable version: $version"
+  fi
+
+  rpmver="$(rpm_version "$version")"
+  local installed
+  installed="$(rpm -q --qf '%{VERSION}' bitwig-studio 2>/dev/null || true)"
+  if [ "$installed" = "$rpmver" ] && [ "$force" -eq 0 ]; then
+    msg "Bitwig Studio $version already installed; nothing to do. (--force to reinstall)"
+    exit 0
+  fi
+  [ -n "$installed" ] && warn "Installed: $installed -> installing $rpmver"
+
+  local work=""
+  if [ -z "$deb" ]; then
+    work="$(mktemp -d /var/tmp/bitwig-dl.XXXXXX)"
+    deb="$work/bitwig-studio.deb"
+    msg "Downloading Bitwig Studio $version (~400 MB)"
+    curl -fL --progress-bar "$(url_for "$version")" -o "$deb"
+  fi
+
+  msg "Repackaging .deb as RPM"
+  local rpmfile
+  rpmfile="$(build_rpm "$deb" "$rpmver")"
+  [ -n "$rpmfile" ] || die "rpmbuild produced no RPM."
+
+  msg "Installing via dnf"
+  sudo dnf install -y "$rpmfile"
+
+  [ -n "$work" ] && rm -rf "$work"
+  rm -f "$rpmfile"
+
+  msg "Done. Bitwig Studio $version installed (dnf-managed, yabridge-friendly)."
+}
+
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+  main "$@"
+fi
