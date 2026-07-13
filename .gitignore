@@ -49,10 +49,11 @@
 
 # Config directories tracked selectively (they also hold untracked content)
 
-# environment.d: only the ydotool socket path is ours; the rest is runtime.
+# environment.d: only our own socket paths are tracked; the rest is runtime.
 !/.config/environment.d/
 /.config/environment.d/*
 !/.config/environment.d/ydotool.conf
+!/.config/environment.d/1password-ssh-agent.conf
 
 # ghostty: the ##os.Linux alternates are tracked; the plain-name symlinks yadm
 # generates from them stay ignored via the /* rule.

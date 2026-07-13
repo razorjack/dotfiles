@@ -557,6 +557,47 @@ setup_zsh() {
   fi
 }
 
+# ---------------------------------------------------------------------------
+# 14. 1Password SSH agent (git pushes over SSH sign with a key held in the app).
+#     The app + CLI come from setup_repos/setup_packages, and SSH_AUTH_SOCK is
+#     aimed at the agent by the tracked .config/environment.d/1password-ssh-agent.conf.
+#     Neither can switch the agent ON: `sshAgent.enabled` is an *authenticated*
+#     setting - the value in settings.json is MAC'd (see its authTags block) with
+#     a key that only exists in memory while the app is unlocked, so writing that
+#     JSON from a script yields an invalid tag and the app ignores it. It is also
+#     per-device, so it does NOT sync from the Mac. Hence this step verifies and
+#     tells you what to click, rather than pretending to automate it.
+# ---------------------------------------------------------------------------
+setup_1password_ssh() {
+  msg "1Password SSH agent"
+  local sock="$HOME/.1password/agent.sock"
+
+  # Silences "Starting filesystem watcher for SSH agent configuration
+  # directories: NotFound" on every app start. An agent.toml here (optional,
+  # restricts which keys the agent offers) is a plain file, unlike the toggle,
+  # so it can be tracked as a dotfile if ever wanted.
+  mkdir -p "$CONFIG_HOME/1Password/ssh"
+
+  if [ ! -S "$sock" ]; then
+    warn "No agent socket at $sock."
+    warn "Open 1Password, sign in, then: Settings > Developer > Use the SSH agent."
+    return
+  fi
+
+  if SSH_AUTH_SOCK="$sock" ssh-add -l >/dev/null 2>&1; then
+    SSH_AUTH_SOCK="$sock" ssh-add -l | sed 's/^/    /'
+  else
+    warn "Socket is there but serves no keys: 1Password is locked, or the agent is off."
+    warn "Unlock it (once - a double unlock can wedge its settings store), then"
+    warn "confirm Settings > Developer > Use the SSH agent."
+  fi
+
+  if [ "${SSH_AUTH_SOCK:-}" != "$sock" ]; then
+    warn "SSH_AUTH_SOCK is '${SSH_AUTH_SOCK:-unset}' in this session, not the 1Password socket."
+    warn "Log out and back in - environment.d is read only when the systemd user manager starts."
+  fi
+}
+
 # --- run order -------------------------------------------------------------
 main() {
   # Cache sudo and keep it alive for the whole run.
@@ -581,6 +622,7 @@ main() {
   setup_window_tiling
   setup_dictation
   setup_zsh
+  setup_1password_ssh
 
   msg "Done. Reboot to load the NVIDIA driver and apply the kernel arg change."
 }
