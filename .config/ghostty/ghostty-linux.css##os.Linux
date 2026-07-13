@@ -5,18 +5,32 @@
    GTK node tree with:
      GTK_DEBUG=interactive ghostty  */
 
+/* Colors: stock libadwaita dark grays (~#303030/#404040) glow next to the
+   near-black terminal (background = #0c0c0d in linux.conf), so darken the
+   whole bar to sit between the two. */
+
 tabbar tabbox {
   min-height: 0;
   margin: 0;
   padding: 0;
+  background: #151517;
 }
 
 tabbar tabbox tab {
   min-height: 0;
   margin: 0;
-  padding: 2px 6px;
+  padding: 1px 6px;
+  background: transparent;
+}
+
+tabbar tabbox tab:hover:not(:selected) {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+tabbar tabbox tab:selected {
+  background: #26262a;
 }
 
 tabbar tabbox tab label {
-  font-size: 12px;
+  font-size: 11px;
 }
