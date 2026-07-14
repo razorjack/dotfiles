@@ -39,18 +39,19 @@ fi
 # BEFORE any yadm command (yadm's alt-linking silently replaces regular files
 # at the plain alternate paths). The -L test also catches symlinks (dangling or
 # not) so a partially-migrated state is cleaned up rather than tripped over.
+LOCAL_FILES='
+.customenv
+.config/ghostty/linux.conf
+.config/ghostty/linux.conf##os.Linux
+.config/ghostty/ghostty-linux.css
+.config/ghostty/ghostty-linux.css##os.Linux
+.config/kitty/linux-local.conf
+.config/kitty/linux-local.conf##os.Linux
+.config/systemd/user/ydotoold.service
+.config/environment.d/ydotool.conf
+'
 msg "Backing up machine-local files to $BACKUP"
-for f in \
-  .customenv \
-  '.config/ghostty/linux.conf' \
-  '.config/ghostty/linux.conf##os.Linux' \
-  '.config/ghostty/ghostty-linux.css' \
-  '.config/ghostty/ghostty-linux.css##os.Linux' \
-  '.config/kitty/linux-local.conf' \
-  '.config/kitty/linux-local.conf##os.Linux' \
-  .config/systemd/user/ydotoold.service \
-  .config/environment.d/ydotool.conf
-do
+for f in $LOCAL_FILES; do
   if [ -e "$HOME/$f" ] || [ -L "$HOME/$f" ]; then
     mkdir -p "$BACKUP/$(dirname "$f")"
     mv "$HOME/$f" "$BACKUP/$f"
@@ -63,6 +64,17 @@ msg "Pulling $PULL_REF from $PULL_FROM"
 git -C "$HOME" pull --ff-only "$PULL_FROM" "$PULL_REF"
 [ -x "$HOME/.local/bin/yadm" ] && [ -f "$HOME/.config/yadm/bootstrap" ] \
   || die "Migration commit not present after pull; aborting (backups in $BACKUP)."
+
+# If the checkout was already at the migration commit, the pull was a no-op and
+# won't re-create the tracked files the backup loop just moved away - restore
+# any backed-up path that git tracks.
+for f in $LOCAL_FILES; do
+  if [ ! -e "$HOME/$f" ] \
+     && git -C "$HOME" ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+    git -C "$HOME" checkout -- "$f"
+    echo "    restored tracked $f"
+  fi
+done
 
 # --- move the repo out of \$HOME and hand it to yadm --------------------------
 msg "Moving \$HOME/.git -> $REPO"
