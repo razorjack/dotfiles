@@ -1,0 +1,532 @@
+#!/usr/bin/env bash
+#
+# vstbridge - repeatable setup + daily-driver utility for running Windows VSTs
+#             on Fedora/KDE via yabridge and the giang17-patched Wine.
+#
+# Written for: Fedora 44+, KDE, x86_64. Bitwig / REAPER / Renoise as hosts.
+# Covers: Serum 2, FabFilter, Kilohearts (Phase Plant), Arturia (Pigments),
+#         Minimal Audio (Rift, Morph EQ), XLN Audio (XO),
+#         Native Instruments (Komplete), Neural DSP, Bogren Digital.
+#
+# USAGE
+#   vstbridge setup                    one-time / repeatable system setup (idempotent)
+#   vstbridge install <vendor> <exe>   run a Windows installer inside the vendor prefix,
+#                                      then re-apply font fixes and sync yabridge
+#   vstbridge run <vendor> <exe|verb>  run any .exe in the vendor prefix (license
+#                                      managers: Arturia Software Center, Native
+#                                      Access, Minimal Audio installer, XLN
+#                                      Online Installer, ...)
+#   vstbridge shell <vendor>           subshell with WINEPREFIX/env set for that vendor
+#   vstbridge winecfg <vendor>         winecfg for that vendor's prefix
+#   vstbridge tricks <vendor> <verbs>  winetricks in that vendor's prefix
+#   vstbridge sync                     yabridgectl sync + status
+#   vstbridge fix-fonts [vendor]       re-apply FontLink registry fixes (all prefixes
+#                                      if no vendor given). Needed after any wineboot!
+#   vstbridge ni-postinstall           install the NTK daemon after Native Access setup
+#   vstbridge serum-fonts              generate the BitPDisp-10 tooltip font for Serum 2
+#   vstbridge doctor                   sanity checks (wine version, DXVK, esync, DAWs...)
+#   vstbridge vendors                  list vendors, prefixes and per-vendor notes
+#   vstbridge paths                    print the plugin paths to configure in your DAWs
+#
+# TYPICAL FLOW ON A FRESH FEDORA INSTALL
+#   1) ./vstbridge setup
+#   2) download vendor installers on the Linux side
+#   3) ./vstbridge install serum ~/Downloads/Install_Xfer_Serum2_*.exe
+#      ./vstbridge install fabfilter ~/Downloads/proq4.exe          (etc.)
+#      ./vstbridge run arturia ~/Downloads/Arturia_Software_Center*.exe
+#      ./vstbridge run ni ~/Downloads/native-access-1.14.1.exe && ./vstbridge ni-postinstall
+#   4) ./vstbridge sync && ./vstbridge doctor
+#   5) point REAPER/Renoise at the paths from `vstbridge paths` (Bitwig needs nothing)
+#
+# ---------------------------------------------------------------------------
+# WORKAROUND LEDGER - every hack in this file, and when to delete it
+# ---------------------------------------------------------------------------
+# [W1] Patched Wine + yabridge-master from COPR patrickl/wine-11.8-vstgui-juce8
+#      instead of Fedora's own wine + a yabridge release.
+#      WHY: (a) yabridge's last release (5.1.1, 2024) does not work with Wine
+#      9.22+/10.x/11.x; the fixes (new-wine10-embedding + "call VST3 functions
+#      from the UI thread", needed by Serum 2) are only on yabridge master.
+#      (b) Vanilla Wine cannot render Serum 2 / modern VSTGUI / JUCE 8 UIs;
+#      the D2D1+DirectComposition+DWrite patches live in
+#      https://github.com/giang17/wine (d2d1-dcomp-11.x branches), packaged in
+#      that COPR. See robbert-vdh/yabridge#413 for the whole saga.
+#      REMOVE WHEN: yabridge tags a release > 5.1.1 (then use Fedora's yabridge
+#      or the release binaries) AND the giang17 d2d1/dcomp patches are merged
+#      into upstream Wine (upstreaming to winehq is planned after the fork's
+#      Wine 12.0 rebase - watch https://github.com/giang17/wine and
+#      https://bugs.winehq.org/show_bug.cgi?id=59916). Then: disable the COPR,
+#      `dnf distro-sync wine yabridge`.
+#      NOTE: the COPR name embeds the wine version and will change when the
+#      maintainer rebases (e.g. onto wine 12.0). If `dnf copr enable` fails,
+#      check https://copr.fedorainfracloud.org/coprs/patrickl/ for the
+#      successor project and update COPR_PROJECT below.
+#
+# [W2] NO DXVK in any prefix managed by this script.
+#      WHY: DXVK's dxgi.dll overwrites the patched Wine's builtin dxgi, which
+#      carries the DirectComposition/z-order fixes; mixing them breaks popups
+#      and can crash (confirmed by the patch author in yabridge#413).
+#      WineD3D performs equally well for these D2D1-based plugin UIs.
+#      REMOVE WHEN: [W1] is gone (vanilla wine again) AND a plugin actually
+#      needs DXVK - then that plugin gets its own prefix + vanilla wine.
+#
+# [W3] FontLink registry entries are re-applied after every installer run.
+#      WHY: `wineboot -u` (which installers can trigger) resets the Tahoma
+#      FontLink and Serum 2's stars/arrows become tofu boxes again. Documented
+#      in giang17's wine-font-setup-guide.md.
+#      REMOVE WHEN: upstream Wine preserves/auto-creates FontLink entries, or
+#      the fork stops needing them (check the guide in the giang17 repo).
+#
+# [W4] MS Core Fonts via `winetricks corefonts` per prefix (not a Fedora rpm).
+#      WHY: Fedora has no packaged mscorefonts; winetricks downloads and
+#      registers them in the prefix, which is exactly what the font guide
+#      needs (some plugin engines dlopen C:\windows\Fonts\*.ttf directly and
+#      crash with c0000005 if missing - e.g. Arial Bold / Verdana).
+#      REMOVE WHEN: never, really - unless you install msttcore fonts system
+#      wide and prefer copying them in (see the guide).
+#
+# [W5] Native Instruments: legacy Native Access 1.14.1 + NTK daemon + vcrun2022,
+#      Windows-10 prefix. Current Native Access (Electron) does NOT run under
+#      Wine. Kontakt 7 installs; Kontakt 8's installer currently FAILS. Some
+#      NI content ships as ISOs Wine can't mount - mount them on Linux
+#      (`udisksctl loop-setup -f file.iso`) and run the inner installer with
+#      `vstbridge run ni ...`.
+#      REMOVE WHEN: NI ships a Native Access that runs under Wine, or the
+#      Kontakt 8 installer starts working (watch the yabridge Discord/README).
+#
+# [W6] Serum 2 BitPDisp-10 tooltip font is faked from DejaVu Sans Mono
+#      (fontTools rename), because the font only ships with the Windows
+#      installer's extras and DWrite otherwise falls back to ugly Tahoma.
+#      REMOVE WHEN: the Serum 2 installer run under Wine drops the real
+#      BitPDisp-10 into the skin Fonts folder (check
+#      "<serum prefix>/drive_c/users/$USER/Documents/Xfer/Serum 2 Presets/Skins/Default/Fonts").
+#
+# [W7] Kilohearts: esync must stay OFF (fd leaks eventually wedge Wine+yabridge).
+#      Fedora wine does not enable esync unless WINEESYNC=1 is exported - so
+#      the "workaround" is simply: never export WINEESYNC/WINEFSYNC in the
+#      environment your DAW starts from. `doctor` checks this.
+#      REMOVE WHEN: the Kilohearts fd leak is fixed (yabridge README says).
+#
+# [W8] Neural DSP (Fortin Nameless Suite) is PACE/iLok-licensed. PACE is the
+#      single most Wine-hostile DRM in audio: results are genuinely mixed.
+#      What can work: installing iLok License Manager INSIDE the neuraldsp
+#      prefix and activating to THIS MACHINE (iLok Cloud / machine activation).
+#      What cannot work: USB iLok dongles (PACE's USB driver stack has no Wine
+#      support). If iLok LM itself crashes on install/login, the plugin is
+#      dead in the water on Linux - there is no further workaround, stop there.
+#      Note: a machine activation binds to the prefix's view of the hardware;
+#      keep backups of the prefix and deactivate before OS reinstalls, or
+#      you'll burn activations.
+#      REMOVE WHEN: PACE ships Linux support (announced on and off for years -
+#      check https://www.ilok.com) or Neural DSP drops iLok.
+#
+# ---------------------------------------------------------------------------
+# ASSUMPTIONS
+# ---------------------------------------------------------------------------
+# [A1] Fedora 44+ x86_64 with dnf5-style `dnf copr` available, sudo rights.
+# [A2] The COPR ships packages named `wine` and `yabridge`, with yabridge
+#      including `yabridgectl`.
+# [A3] DAWs are NATIVE installs (Bitwig .deb->rpm/tar, REAPER tarball, Renoise
+#      tarball). A Flatpak DAW canNOT see system wine/yabridge without messy
+#      sandbox overrides - avoid Flatpak for the DAW. `doctor` warns if it
+#      spots a Flatpak Bitwig/REAPER/Renoise.
+# [A4] Fedora package names for fonts: dejavu-sans-fonts and one of the
+#      google-noto-*symbols2* packages; we locate the actual .ttf files via
+#      fontconfig at runtime, so an unexpected package name only matters if
+#      the font is missing entirely.
+# [A5] Prefixes live under ~/.vstbridge/prefixes/<vendor>. Wine 11 defaults
+#      new prefixes to Windows 10, we still set it explicitly.
+# [A6] You use the VST3 (and CLAP where offered) builds of plugins. VST2 dirs
+#      are still created and registered for the stragglers.
+# [A7] Serum 2 >= 2.1.2 (older builds have their own leaks/crashes that were
+#      fixed plugin-side during the yabridge#413 investigation).
+# ---------------------------------------------------------------------------
+
+set -euo pipefail
+
+# --- configuration ----------------------------------------------------------
+
+COPR_PROJECT="patrickl/wine-11.8-vstgui-juce8"   # see [W1] for successor lookup
+VSTBRIDGE_HOME="${VSTBRIDGE_HOME:-$HOME/.vstbridge}"
+PREFIX_ROOT="$VSTBRIDGE_HOME/prefixes"
+
+# Vendors. One wineprefix per vendor: cheap, and a broken experiment (looking
+# at you, Native Access) can never take down the rest.
+VENDORS=(serum fabfilter kilohearts arturia minimalaudio xln ni neuraldsp bogren)
+
+vendor_note() {
+    case "$1" in
+        serum)        echo "Xfer Serum 2. Needs the patched wine + font setup; defaults in Serum2Prefs.json are fine with it. Run 'vstbridge serum-fonts' after installing." ;;
+        fabfilter)    echo "FabFilter (Pro-Q etc). Works essentially perfectly. VST2-only niceties (inter-instance stuff) need plugin groups - see the yabridge.toml template; the VST3s don't care." ;;
+        kilohearts)   echo "Kilohearts / Phase Plant. Works well. Keep esync OFF [W7]." ;;
+        arturia)      echo "Arturia Pigments. Install via Arturia Software Center ('vstbridge run arturia ASC.exe'). Known JUCE tooltip-freeze reports on vanilla wine; patched wine should behave better." ;;
+        minimalaudio) echo "Minimal Audio Rift / Morph EQ. Least-documented of the set; modern GPU-ish UI is exactly what the patched wine targets. Their download manager needs a login - run it with 'vstbridge run minimalaudio'." ;;
+        xln)          echo "XLN Audio XO. Reported working well. Use the XLN Online Installer via 'vstbridge run xln'." ;;
+        ni)           echo "Native Instruments Komplete [W5]: legacy Native Access 1.14.1 only, then 'vstbridge ni-postinstall' for the NTK daemon. Kontakt 7 yes, Kontakt 8 currently no. ISO content: mount on Linux, run inner installer." ;;
+        neuraldsp)    echo "Neural DSP Fortin Nameless Suite. iLok-licensed [W8]: install iLok License Manager into this prefix ('vstbridge run neuraldsp iLokLicenseManager*.exe'), log in, MACHINE-activate (USB iLok dongles do not work under Wine). Then install the plugin. Separate known issue: GUI ignoring input in REAPER (yabridge#432) - workarounds are pre-written in this prefix's yabridge.toml section." ;;
+        bogren)       echo "Bogren Digital MLC S_Zero 93 + MLC S_Zero 100. Standard installers ('vstbridge install bogren ...'); the RISK is Bogren's online activation (phones home, may re-validate per launch). Activate from inside the plugin UI in your DAW; if it won't stick, that's DRM, not setup." ;;
+        *)            echo "" ;;
+    esac
+}
+
+# --- helpers -----------------------------------------------------------------
+
+log()  { printf '\033[1;32m==>\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33mWARN\033[0m %s\n' "$*"; }
+die()  { printf '\033[1;31mERROR\033[0m %s\n' "$*" >&2; exit 1; }
+
+prefix_of() { echo "$PREFIX_ROOT/$1"; }
+
+require_vendor() {
+    local v
+    for v in "${VENDORS[@]}"; do [[ "$v" == "$1" ]] && return 0; done
+    die "unknown vendor '$1' - one of: ${VENDORS[*]}"
+}
+
+# Environment for everything we run under Wine:
+#  - winemenubuilder disabled: no .exe file associations / menu entries from
+#    plugin installers polluting KDE.
+#  - esync/fsync explicitly off [W7].
+run_in_prefix() {
+    local vendor="$1"; shift
+    env WINEPREFIX="$(prefix_of "$vendor")" \
+        WINEDLLOVERRIDES="winemenubuilder.exe=d" \
+        WINEESYNC=0 WINEFSYNC=0 \
+        "$@"
+}
+
+# Locate a host font file through fontconfig [A4].
+find_font() {
+    fc-list --format '%{file}\n' | grep -m1 -F "$1" || true
+}
+
+# --- setup steps -------------------------------------------------------------
+
+setup_packages() {
+    log "Enabling COPR $COPR_PROJECT and installing packages [W1]"
+    sudo dnf -y copr enable "$COPR_PROJECT" \
+        || die "COPR enable failed - project may have been renamed after a wine rebase, see [W1] in this script"
+    # cabextract: needed by winetricks corefonts [W4]
+    # python3-fonttools: for the Serum BitPDisp-10 substitute [W6]
+    sudo dnf -y install wine yabridge winetricks cabextract \
+        dejavu-sans-fonts dejavu-sans-mono-fonts python3-fonttools
+    # Noto Sans Symbols 2: exact Fedora pkg name has varied; try candidates,
+    # then verify via fontconfig [A4].
+    sudo dnf -y install google-noto-sans-symbols2-fonts 2>/dev/null \
+        || sudo dnf -y install 'google-noto-sans-symbols*' 2>/dev/null \
+        || warn "could not install a Noto Sans Symbols 2 package - install it manually, Serum's stars/arrows need it"
+    [[ -n "$(find_font NotoSansSymbols2-Regular.ttf)" ]] \
+        || warn "NotoSansSymbols2-Regular.ttf not found via fontconfig"
+
+    command -v yabridgectl >/dev/null || die "yabridgectl missing - COPR yabridge package changed? [A2]"
+    log "wine: $(wine --version 2>/dev/null), yabridge: $(yabridgectl --version 2>/dev/null || true)"
+}
+
+# Fonts, per the giang17 wine-font-setup-guide.md (three separate render paths).
+setup_prefix_fonts() {
+    local vendor="$1" px; px="$(prefix_of "$vendor")"
+    local winfonts="$px/drive_c/windows/Fonts"
+    mkdir -p "$winfonts" "$HOME/.local/share/fonts"
+
+    # (a) MS Core Fonts: real files in C:\windows\Fonts + registry [W4].
+    # Idempotent: winetricks marks the verb done inside the prefix.
+    run_in_prefix "$vendor" winetricks -q corefonts \
+        || warn "[$vendor] winetricks corefonts failed (offline?) - rerun 'vstbridge tricks $vendor corefonts'"
+
+    # (b) DejaVu + Noto Symbols2 into the prefix (GDI FontLink targets) and
+    # into fontconfig (DWrite/D2D1 path).
+    local dv ns
+    dv="$(find_font DejaVuSans.ttf)"; ns="$(find_font NotoSansSymbols2-Regular.ttf)"
+    [[ -n "$dv" ]] && cp -f "$dv" "$winfonts/DejaVuSans.ttf"
+    if [[ -n "$ns" ]]; then
+        cp -f "$ns" "$winfonts/NotoSansSymbols2-Regular.ttf"
+        cp -f "$ns" "$HOME/.local/share/fonts/"
+        fc-cache -f >/dev/null
+    fi
+
+    apply_fontlink "$vendor"
+}
+
+# (c) GDI FontLink registry entries - verbatim from the font guide. [W3]
+apply_fontlink() {
+    local vendor="$1"
+    log "[$vendor] applying FontLink registry entries [W3]"
+    run_in_prefix "$vendor" wine reg add \
+        'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\FontLink\SystemLink' \
+        /v "Tahoma" /t REG_MULTI_SZ \
+        /d 'DejaVuSans.ttf,DejaVu Sans\0NotoSansSymbols2-Regular.ttf,Noto Sans Symbols2\0MSGOTHIC.TTC,MS UI Gothic\0MINGLIU.TTC,PMingLiU\0SIMSUN.TTC,SimSun\0GULIM.TTC,Gulim\0YUGOTHM.TTC,Yu Gothic UI\0MSJH.TTC,Microsoft JhengHei UI\0MSYH.TTC,Microsoft YaHei UI\0MALGUN.TTF,Malgun Gothic\0SEGUISYM.TTF,Segoe UI Symbol' /f >/dev/null
+    run_in_prefix "$vendor" wine reg add \
+        'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\FontLink\SystemLink' \
+        /v "DejaVu Sans" /t REG_MULTI_SZ \
+        /d 'NotoSansSymbols2-Regular.ttf,Noto Sans Symbols2' /f >/dev/null
+    run_in_prefix "$vendor" wineserver -w   # let the registry settle
+}
+
+setup_prefix() {
+    local vendor="$1" px; px="$(prefix_of "$vendor")"
+    log "[$vendor] prefix: $px"
+    mkdir -p "$px"
+    run_in_prefix "$vendor" wineboot -i >/dev/null 2>&1 || true
+    run_in_prefix "$vendor" wineserver -w
+    # Explicit Windows 10 [A5]; NI's installers require it [W5].
+    run_in_prefix "$vendor" winecfg /v win10 >/dev/null 2>&1 || true
+
+    # Pre-create the standard plugin dirs so yabridgectl can watch them from
+    # day one - after that, any installer run only ever needs a 'sync'.
+    mkdir -p "$px/drive_c/Program Files/Common Files/VST3" \
+             "$px/drive_c/Program Files/Common Files/CLAP" \
+             "$px/drive_c/Program Files/Steinberg/VstPlugins"
+
+    setup_prefix_fonts "$vendor"
+
+    # Vendor-specific extras:
+    case "$vendor" in
+        ni)
+            # [W5] Native Access 1.x needs MSVC 2022 runtimes for the NTK daemon.
+            run_in_prefix ni winetricks -q vcrun2022 \
+                || warn "[ni] winetricks vcrun2022 failed - rerun 'vstbridge tricks ni vcrun2022' before installing Native Access"
+            ;;
+        neuraldsp)
+            # [W8] iLok License Manager and the Neural DSP installers are MSVC
+            # apps; pre-install the runtimes so their failure modes are DRM,
+            # not missing DLLs. ASSUMPTION: vcrun2022 suffices - if iLok LM
+            # complains about a specific runtime, add it via
+            # 'vstbridge tricks neuraldsp <verb>'.
+            run_in_prefix neuraldsp winetricks -q vcrun2022 \
+                || warn "[neuraldsp] winetricks vcrun2022 failed - rerun 'vstbridge tricks neuraldsp vcrun2022' before installing iLok License Manager"
+            ;;
+    esac
+}
+
+setup_yabridgectl() {
+    log "Registering plugin directories with yabridgectl"
+    local v px
+    for v in "${VENDORS[@]}"; do
+        px="$(prefix_of "$v")"
+        yabridgectl add "$px/drive_c/Program Files/Common Files/VST3" 2>/dev/null || true
+        yabridgectl add "$px/drive_c/Program Files/Common Files/CLAP" 2>/dev/null || true
+        yabridgectl add "$px/drive_c/Program Files/Steinberg/VstPlugins" 2>/dev/null || true
+    done
+    yabridgectl sync
+}
+
+# yabridge.toml templates. yabridge looks for yabridge.toml next to (or in a
+# parent dir of) the *bridged* .so/.vst3 files, i.e. under ~/.vst3/yabridge
+# and ~/.vst/yabridge. Everything ships commented-out: these are opt-in
+# workarounds, not defaults.
+setup_toml() {
+    local d
+    for d in "$HOME/.vst3/yabridge" "$HOME/.vst/yabridge" "$HOME/.clap/yabridge"; do
+        mkdir -p "$d"
+        [[ -e "$d/yabridge.toml" ]] && continue   # never clobber user edits
+        cat > "$d/yabridge.toml" <<'EOF'
+# vstbridge-managed template. Uncomment per-plugin sections as needed.
+# Docs: https://github.com/robbert-vdh/yabridge#runtime-dependencies-and-known-issues
+
+# --- FabFilter (VST2 only) ---------------------------------------------------
+# VST2 FabFilter instances can only share state/presets between instances when
+# hosted in one process. Irrelevant for the VST3 builds.
+# ["FabFilter*"]
+# group = "fabfilter"
+
+# --- Neural DSP (Fortin Nameless Suite) ---------------------------------------
+# If a Neural DSP GUI renders but ignores mouse/keyboard input (seen in REAPER,
+# yabridge issue #432), try these one at a time:
+# ["*Nameless*", "*Fortin*", "*Archetype*", "*Neural*"]
+# disable_pipes = true
+# editor_force_dnd = true
+# editor_xembed = true
+
+# --- ujam / Gorilla Engine (JS_EXEC_FAILED) - not in the current set, but the
+# canonical example of disable_pipes:
+# ["ujam*"]
+# disable_pipes = true
+EOF
+        log "wrote template $d/yabridge.toml"
+    done
+}
+
+# --- commands ----------------------------------------------------------------
+
+cmd_setup() {
+    setup_packages
+    local v
+    for v in "${VENDORS[@]}"; do setup_prefix "$v"; done
+    setup_yabridgectl
+    setup_toml
+    cmd_paths
+    log "Setup complete. Next: download installers, then 'vstbridge install <vendor> <exe>'. Run 'vstbridge vendors' for per-vendor notes."
+}
+
+cmd_install() {
+    local vendor="${1:?usage: vstbridge install <vendor> <installer.exe> [args]}"; shift
+    require_vendor "$vendor"
+    local exe="${1:?installer path required}"; shift || true
+    [[ -f "$exe" ]] || die "no such file: $exe"
+    log "[$vendor] $(vendor_note "$vendor")"
+    log "[$vendor] running installer: $exe"
+    run_in_prefix "$vendor" wine "$exe" "$@" || warn "installer exited non-zero (cancelled?)"
+    run_in_prefix "$vendor" wineserver -w
+    # Installers can trigger wineboot, which nukes FontLink [W3] - reapply.
+    apply_fontlink "$vendor"
+    yabridgectl sync
+    log "[$vendor] done. If the plugin doesn't show up: is it in this prefix's VST3/CLAP/VST2 dir? ('vstbridge paths')"
+}
+
+cmd_run() {
+    local vendor="${1:?usage: vstbridge run <vendor> <exe> [args]}"; shift
+    require_vendor "$vendor"
+    local exe="${1:?exe path required}"; shift || true
+    run_in_prefix "$vendor" wine "$exe" "$@"
+    run_in_prefix "$vendor" wineserver -w
+    apply_fontlink "$vendor"   # cheap, and license managers wineboot too [W3]
+}
+
+cmd_shell() {
+    local vendor="${1:?usage: vstbridge shell <vendor>}"
+    require_vendor "$vendor"
+    log "subshell for '$vendor' - WINEPREFIX is set; 'exit' to leave"
+    env WINEPREFIX="$(prefix_of "$vendor")" WINEDLLOVERRIDES="winemenubuilder.exe=d" \
+        WINEESYNC=0 WINEFSYNC=0 "${SHELL:-/bin/bash}"
+}
+
+cmd_winecfg() {
+    local vendor="${1:?usage: vstbridge winecfg <vendor>}"
+    require_vendor "$vendor"
+    run_in_prefix "$vendor" winecfg
+}
+
+cmd_tricks() {
+    local vendor="${1:?usage: vstbridge tricks <vendor> <verbs...>}"; shift
+    require_vendor "$vendor"
+    [[ "$*" == *dxvk* ]] && die "refusing: DXVK breaks the patched wine [W2]"
+    run_in_prefix "$vendor" winetricks "$@"
+}
+
+cmd_sync() { yabridgectl sync; yabridgectl status || true; }
+
+cmd_fix_fonts() {
+    local v
+    if [[ $# -ge 1 ]]; then require_vendor "$1"; apply_fontlink "$1"
+    else for v in "${VENDORS[@]}"; do [[ -d "$(prefix_of "$v")" ]] && apply_fontlink "$v"; done
+    fi
+}
+
+# [W5] After installing Native Access 1.14.1, its background daemon must be
+# installed separately or NA hangs at login / downloads.
+cmd_ni_postinstall() {
+    local px; px="$(prefix_of ni)"
+    local daemon_dir="$px/drive_c/Program Files/Native Instruments/Native Access/resources/daemon/win"
+    local installer
+    installer="$(find "$daemon_dir" -iname '*.exe' 2>/dev/null | head -n1 || true)"
+    [[ -n "$installer" ]] || die "NTK daemon installer not found under '$daemon_dir' - install Native Access 1.14.1 first ('vstbridge run ni native-access-1.14.1.exe')"
+    log "[ni] installing NTK daemon: $installer"
+    run_in_prefix ni wine "$installer"
+    run_in_prefix ni wineserver -w
+    log "[ni] done - now 'vstbridge run ni \"$px/drive_c/Program Files/Native Instruments/Native Access/Native Access.exe\"'"
+}
+
+# [W6] Fake BitPDisp-10 for Serum 2 tooltips (else: aliased Tahoma fallback).
+cmd_serum_fonts() {
+    local px; px="$(prefix_of serum)"
+    local mono; mono="$(find_font DejaVuSansMono.ttf)"
+    [[ -n "$mono" ]] || die "DejaVuSansMono.ttf not found (dnf install dejavu-sans-mono-fonts)"
+    command -v python3 >/dev/null || die "python3 required"
+    local out="$VSTBRIDGE_HOME/BitPDisp-10.ttf"
+    python3 - "$mono" "$out" <<'EOF' || die "fontTools rename failed (dnf install python3-fonttools)"
+import sys
+from fontTools.ttLib import TTFont
+font = TTFont(sys.argv[1])
+for rec in font['name'].names:
+    if rec.nameID in (1, 4, 6):  # Family, Full name, PostScript name
+        rec.string = 'BitPDisp-10'
+font.save(sys.argv[2])
+EOF
+    # Serum reads it from the skin's font folder (VSTGUI custom collection)
+    # and DWrite's system collection reads it via fontconfig.
+    local skin="$px/drive_c/users/$USER/Documents/Xfer/Serum 2 Presets/Skins/Default/Fonts"
+    if [[ -d "$(dirname "$skin")" || -d "$skin" ]]; then
+        mkdir -p "$skin"; cp -f "$out" "$skin/BitPDisp-10.ttf"
+    else
+        warn "Serum skin folder not found yet (install/run Serum 2 once, then rerun) - installing to fontconfig only"
+    fi
+    cp -f "$out" "$HOME/.local/share/fonts/BitPDisp-10.ttf"
+    fc-cache -f >/dev/null
+    log "BitPDisp-10 substitute installed [W6]"
+}
+
+cmd_doctor() {
+    local ok=0
+    echo "--- vstbridge doctor ---"
+    # wine must be the COPR build [W1]
+    if command -v wine >/dev/null; then
+        echo "wine:        $(wine --version)"
+        wine --version | grep -qiE 'vstgui|juce|11\.' || warn "wine doesn't look like the COPR build - check 'dnf list --installed wine' [W1]"
+    else warn "wine not installed"; ok=1; fi
+    command -v yabridgectl >/dev/null && echo "yabridgectl: $(yabridgectl --version 2>/dev/null || echo present)" || { warn "yabridgectl missing"; ok=1; }
+    # esync/fsync must be off in the login environment [W7]
+    [[ -z "${WINEESYNC:-}" && -z "${WINEFSYNC:-}" ]] || { warn "WINEESYNC/WINEFSYNC set in environment - Kilohearts will leak fds [W7]"; ok=1; }
+    # DXVK detection per prefix [W2]: DXVK's dxgi.dll contains the string DXVK.
+    local v px dll
+    for v in "${VENDORS[@]}"; do
+        px="$(prefix_of "$v")"
+        [[ -d "$px" ]] || { warn "prefix missing for $v (rerun 'vstbridge setup')"; continue; }
+        dll="$px/drive_c/windows/system32/dxgi.dll"
+        [[ -f "$dll" ]] && grep -aq DXVK "$dll" && { warn "[$v] DXVK detected - this breaks the patched wine [W2]; recreate this prefix"; ok=1; }
+        [[ -f "$px/drive_c/windows/Fonts/NotoSansSymbols2-Regular.ttf" ]] || warn "[$v] symbol font missing in prefix (rerun setup / fix-fonts)"
+    done
+    # Flatpak DAWs can't see system wine [A3]
+    if command -v flatpak >/dev/null; then
+        flatpak list --app 2>/dev/null | grep -qiE 'bitwig|reaper|renoise' \
+            && { warn "Flatpak DAW detected - yabridge plugins won't load inside its sandbox; use a native install [A3]"; ok=1; }
+    fi
+    # bridged plugin dirs present?
+    for d in "$HOME/.vst3/yabridge" "$HOME/.clap/yabridge"; do
+        [[ -d "$d" ]] && echo "bridged:     $d ($(find "$d" -maxdepth 1 \( -name '*.vst3' -o -name '*.clap' -o -name '*.so' \) 2>/dev/null | wc -l | tr -d ' ') entries)"
+    done
+    yabridgectl status 2>/dev/null | tail -n 5 || true
+    [[ $ok -eq 0 ]] && log "doctor: no blocking problems found"
+    return 0
+}
+
+cmd_vendors() {
+    local v
+    for v in "${VENDORS[@]}"; do
+        printf '\033[1m%-13s\033[0m %s\n' "$v" "$(prefix_of "$v")"
+        printf '              %s\n' "$(vendor_note "$v")"
+    done
+}
+
+cmd_paths() {
+    cat <<EOF
+
+DAW plugin paths (yabridge puts the bridged plugins here):
+  VST3:  $HOME/.vst3/yabridge      Bitwig: scanned automatically, nothing to do
+  CLAP:  $HOME/.clap/yabridge      REAPER: Options > Preferences > VST: add both paths
+  VST2:  $HOME/.vst/yabridge       Renoise: Preferences > Plug/Misc: uses ~/.vst3 + VST path (Renoise >= 3.4 for VST3)
+
+After ANY installer or license-manager run: 'vstbridge sync' (the install/run
+commands already do this for you).
+EOF
+}
+
+usage() { sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; }
+
+# --- dispatch ----------------------------------------------------------------
+
+case "${1:-}" in
+    setup)          shift; cmd_setup "$@" ;;
+    install)        shift; cmd_install "$@" ;;
+    run)            shift; cmd_run "$@" ;;
+    shell)          shift; cmd_shell "$@" ;;
+    winecfg)        shift; cmd_winecfg "$@" ;;
+    tricks)         shift; cmd_tricks "$@" ;;
+    sync)           shift; cmd_sync "$@" ;;
+    fix-fonts)      shift; cmd_fix_fonts "$@" ;;
+    ni-postinstall) shift; cmd_ni_postinstall "$@" ;;
+    serum-fonts)    shift; cmd_serum_fonts "$@" ;;
+    doctor)         shift; cmd_doctor "$@" ;;
+    vendors)        shift; cmd_vendors "$@" ;;
+    paths)          shift; cmd_paths "$@" ;;
+    ''|-h|--help|help) usage ;;
+    *) die "unknown command '${1}' - try 'vstbridge help'" ;;
+esac
