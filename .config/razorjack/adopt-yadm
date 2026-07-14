@@ -28,7 +28,7 @@ die()  { printf '\033[1;31m!! %s\033[0m\n' "$*" >&2; exit 1; }
 # .customenv is retired (RZR_PREFIX moved into shell/darwin.sh + linux.sh).
 # Abort if it holds anything else, so nothing is silently lost.
 if [ -f "$HOME/.customenv" ]; then
-  if grep -Ev '^\s*(#|$)|^export RZR_PREFIX=(/usr|\$HOMEBREW_PREFIX)\s*$' \
+  if grep -Ev '^\s*(#|$)|^export RZR_PREFIX=(/usr|\$HOMEBREW_PREFIX|\$\{HOMEBREW_PREFIX:-/usr\})\s*$' \
        "$HOME/.customenv" >/dev/null; then
     die "~/.customenv contains more than RZR_PREFIX; move that into shell config first."
   fi
