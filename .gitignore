@@ -19,6 +19,7 @@
 # --- .config ---
 !/.config/
 /.config/*
+!/.config/AGENTS.md
 !/.config/CLAUDE.md
 !/.config/starship.toml
 
