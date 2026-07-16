@@ -331,10 +331,11 @@ setup_toml() {
 # --- Neural DSP (Fortin Nameless Suite) ---------------------------------------
 # If a Neural DSP GUI renders but ignores mouse/keyboard input (seen in REAPER,
 # yabridge issue #432), try these one at a time:
+# (editor_xembed used to be a third option here, but yabridge master - which
+# the COPR ships - removed XEmbed support; don't cargo-cult it back.)
 # ["*Nameless*", "*Fortin*", "*Archetype*", "*Neural*"]
 # disable_pipes = true
 # editor_force_dnd = true
-# editor_xembed = true
 
 # --- ujam / Gorilla Engine (JS_EXEC_FAILED) - not in the current set, but the
 # canonical example of disable_pipes:
@@ -364,11 +365,16 @@ cmd_install() {
     [[ -f "$exe" ]] || die "no such file: $exe"
     log "[$vendor] $(vendor_note "$vendor")"
     log "[$vendor] running installer: $exe"
-    run_in_prefix "$vendor" wine "$exe" "$@" || warn "installer exited non-zero (cancelled?)"
+    local rc=0
+    run_in_prefix "$vendor" wine "$exe" "$@" || rc=$?
     run_in_prefix "$vendor" wineserver -w
-    # Installers can trigger wineboot, which nukes FontLink [W3] - reapply.
+    # Installers can trigger wineboot, which nukes FontLink [W3] - reapply
+    # even on failure (a cancelled installer may still have booted the prefix).
     apply_fontlink "$vendor"
     yabridgectl sync
+    if [[ $rc -ne 0 ]]; then
+        die "[$vendor] installer exited with status $rc (cancelled or failed) - fonts/sync were still refreshed"
+    fi
     log "[$vendor] done. If the plugin doesn't show up: is it in this prefix's VST3/CLAP/VST2 dir? ('vstbridge paths')"
 }
 
@@ -379,6 +385,9 @@ cmd_run() {
     run_in_prefix "$vendor" wine "$exe" "$@"
     run_in_prefix "$vendor" wineserver -w
     apply_fontlink "$vendor"   # cheap, and license managers wineboot too [W3]
+    # License managers (ASC, XLN, Native Access...) install the actual plugins,
+    # so sync here too - 'vstbridge paths' promises install AND run do this.
+    yabridgectl sync
 }
 
 cmd_shell() {
@@ -428,6 +437,16 @@ cmd_ni_postinstall() {
 # [W6] Fake BitPDisp-10 for Serum 2 tooltips (else: aliased Tahoma fallback).
 cmd_serum_fonts() {
     local px; px="$(prefix_of serum)"
+    local skin="$px/drive_c/users/$USER/Documents/Xfer/Serum 2 Presets/Skins/Default/Fonts"
+    # If a BitPDisp-10.ttf already exists in the skin (the Windows installer
+    # may ship the real font - see [W6] REMOVE WHEN), never overwrite it;
+    # just expose whatever is there to DWrite via fontconfig.
+    if [[ -f "$skin/BitPDisp-10.ttf" ]]; then
+        log "BitPDisp-10.ttf already present in the Serum skin - not overwriting [W6]"
+        cp -f "$skin/BitPDisp-10.ttf" "$HOME/.local/share/fonts/BitPDisp-10.ttf"
+        fc-cache -f >/dev/null
+        return 0
+    fi
     local mono; mono="$(find_font DejaVuSansMono.ttf)"
     [[ -n "$mono" ]] || die "DejaVuSansMono.ttf not found (dnf install dejavu-sans-mono-fonts)"
     command -v python3 >/dev/null || die "python3 required"
@@ -443,7 +462,6 @@ font.save(sys.argv[2])
 EOF
     # Serum reads it from the skin's font folder (VSTGUI custom collection)
     # and DWrite's system collection reads it via fontconfig.
-    local skin="$px/drive_c/users/$USER/Documents/Xfer/Serum 2 Presets/Skins/Default/Fonts"
     if [[ -d "$(dirname "$skin")" || -d "$skin" ]]; then
         mkdir -p "$skin"; cp -f "$out" "$skin/BitPDisp-10.ttf"
     else
@@ -469,7 +487,7 @@ cmd_doctor() {
     local v px dll
     for v in "${VENDORS[@]}"; do
         px="$(prefix_of "$v")"
-        [[ -d "$px" ]] || { warn "prefix missing for $v (rerun 'vstbridge setup')"; continue; }
+        [[ -d "$px" ]] || { warn "prefix missing for $v (rerun 'vstbridge setup')"; ok=1; continue; }
         dll="$px/drive_c/windows/system32/dxgi.dll"
         [[ -f "$dll" ]] && grep -aq DXVK "$dll" && { warn "[$v] DXVK detected - this breaks the patched wine [W2]; recreate this prefix"; ok=1; }
         [[ -f "$px/drive_c/windows/Fonts/NotoSansSymbols2-Regular.ttf" ]] || warn "[$v] symbol font missing in prefix (rerun setup / fix-fonts)"
@@ -484,8 +502,9 @@ cmd_doctor() {
         [[ -d "$d" ]] && echo "bridged:     $d ($(find "$d" -maxdepth 1 \( -name '*.vst3' -o -name '*.clap' -o -name '*.so' \) 2>/dev/null | wc -l | tr -d ' ') entries)"
     done
     yabridgectl status 2>/dev/null | tail -n 5 || true
-    [[ $ok -eq 0 ]] && log "doctor: no blocking problems found"
-    return 0
+    if [[ $ok -eq 0 ]]; then log "doctor: no blocking problems found"
+    else warn "doctor: blocking problems found (see WARNs above)"; fi
+    return "$ok"
 }
 
 cmd_vendors() {
