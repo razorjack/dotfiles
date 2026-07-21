@@ -58,8 +58,6 @@
   sort = -committerdate
 [commit]
   verbose = true
-[rebase]
-  updateRefs = true
 [core]
   pager = delta --dark
 
