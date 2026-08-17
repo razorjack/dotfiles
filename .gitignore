@@ -16,6 +16,11 @@
 /.claude/*
 !/.claude/CLAUDE.md
 
+# .codex: only the global AGENTS.md is tracked
+!/.codex/
+/.codex/*
+!/.codex/AGENTS.md
+
 # --- .config ---
 !/.config/
 /.config/*
