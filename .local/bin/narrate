@@ -1,0 +1,304 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11,<3.14"
+# dependencies = [
+#     "kokoro-onnx",
+#     "trafilatura",
+#     "markdown-it-py",
+#     "soundfile",
+#     "numpy",
+# ]
+# ///
+"""Read an article aloud with local TTS (Kokoro).
+
+Usage:
+    narrate https://example.com/article
+    narrate notes.md
+    cat notes.md | narrate -
+"""
+
+import argparse
+import re
+import shutil
+import subprocess
+import sys
+import threading
+import urllib.request
+from dataclasses import dataclass
+from pathlib import Path
+from queue import Queue
+
+import numpy as np
+import soundfile
+from markdown_it import MarkdownIt
+
+CACHE_DIR = Path.home() / ".cache" / "narrate"
+MODEL_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1"
+MODEL_FILES = ("kokoro-v1.0.onnx", "voices-v1.0.bin")
+SAMPLE_RATE = 24000
+
+PAUSE_BEFORE_HEADER = 1.2
+PAUSE_AFTER_HEADER = 0.8
+PAUSE_AFTER_PARAGRAPH = 0.6
+PAUSE_AFTER_LIST_ITEM = 0.3
+PAUSE_AFTER_LIST = 0.4
+PAUSE_AROUND_QUOTE = 0.5
+PAUSE_AFTER_SKIPPED = 0.4
+PAUSE_SECTION_BREAK = 1.0
+
+# Headers and quotes are read in a blend of the main voice and a second voice
+# of the same gender and accent, so the narrator keeps their identity but
+# audibly shifts tone. Keyed by voice name prefix (af = American female, ...).
+BLEND_PARTNER = {"af": "af_nicole", "am": "am_michael", "bf": "bf_emma", "bm": "bm_george"}
+
+
+@dataclass
+class Speak:
+    text: str
+    style: str  # "body", "header", or "quote"
+
+
+@dataclass
+class Pause:
+    seconds: float
+
+
+def load_markdown(source):
+    if source == "-":
+        return sys.stdin.read()
+    if source.startswith(("http://", "https://")):
+        return fetch_article(source)
+    path = Path(source)
+    if path.exists():
+        return path.read_text()
+    # A missing path that looks like "example.com/article" is a pasted URL
+    # missing its scheme.
+    if re.match(r"[\w.-]+\.[a-z]{2,}(/|$)", source):
+        return fetch_article(f"https://{source}")
+    sys.exit(f"no such file: {source}")
+
+
+def fetch_article(url):
+    import trafilatura  # imported on demand: slow, and only needed for URLs
+
+    html = trafilatura.fetch_url(url)
+    if not html:
+        sys.exit(f"could not fetch {url}")
+    markdown = trafilatura.extract(
+        html, output_format="markdown", include_links=False, include_images=False
+    )
+    if not markdown:
+        sys.exit("no article content found on that page")
+
+    meta = trafilatura.extract_metadata(html)
+    if meta and meta.title and not markdown.lstrip().startswith("#"):
+        markdown = f"# {meta.title}\n\n{markdown}"
+    return markdown
+
+
+def to_events(markdown):
+    tokens = MarkdownIt().enable("table").parse(markdown)
+    events = []
+    style = "body"
+    list_depth = 0
+    in_table = False
+
+    for token in tokens:
+        match token.type:
+            case "table_open":
+                in_table = True
+                events += [Speak("Table skipped.", "body"), Pause(PAUSE_AFTER_SKIPPED)]
+            case "table_close":
+                in_table = False
+            case _ if in_table:
+                pass
+            case "heading_open":
+                events.append(Pause(PAUSE_BEFORE_HEADER))
+                style = "header"
+            case "heading_close":
+                events.append(Pause(PAUSE_AFTER_HEADER))
+                style = "body"
+            case "blockquote_open":
+                events.append(Pause(PAUSE_AROUND_QUOTE))
+                style = "quote"
+            case "blockquote_close":
+                events.append(Pause(PAUSE_AROUND_QUOTE))
+                style = "body"
+            case "bullet_list_open" | "ordered_list_open":
+                list_depth += 1
+            case "bullet_list_close" | "ordered_list_close":
+                list_depth -= 1
+                if list_depth == 0:
+                    events.append(Pause(PAUSE_AFTER_LIST))
+            case "fence" | "code_block":
+                events += [Speak("Code sample skipped.", "body"), Pause(PAUSE_AFTER_SKIPPED)]
+            case "hr":
+                events.append(Pause(PAUSE_SECTION_BREAK))
+            case "inline":
+                for chunk in chunks(inline_text(token)):
+                    events.append(Speak(chunk, style))
+            case "paragraph_close":
+                events.append(Pause(PAUSE_AFTER_LIST_ITEM if list_depth else PAUSE_AFTER_PARAGRAPH))
+
+    return events
+
+
+def inline_text(token):
+    parts = []
+    for child in token.children or []:
+        if child.type in ("text", "code_inline"):
+            parts.append(child.content)
+        elif child.type in ("softbreak", "hardbreak"):
+            parts.append(" ")
+    return "".join(parts).strip()
+
+
+def chunks(text, limit=300):
+    """Split text into sentence batches short enough for one TTS call."""
+    sentences = re.split(r"(?<=[.!?…])\s+", text)
+    batches = []
+    current = ""
+    for sentence in sentences:
+        if current and len(current) + len(sentence) > limit:
+            batches.append(current)
+            current = sentence
+        else:
+            current = f"{current} {sentence}".strip()
+    if current:
+        batches.append(current)
+    return batches
+
+
+def download(url, dest):
+    def progress(blocks, block_size, total):
+        if total > 0:
+            percent = min(100, blocks * block_size * 100 // total)
+            print(f"\r  {percent}%", end="", flush=True)
+
+    urllib.request.urlretrieve(url, dest, reporthook=progress)
+    print()
+
+
+def ensure_model_files():
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for name in MODEL_FILES:
+        path = CACHE_DIR / name
+        if not path.exists():
+            print(f"downloading {name} (one-time) ...")
+            partial = path.with_name(name + ".part")
+            download(f"{MODEL_URL}/{name}", partial)
+            partial.rename(path)
+        paths.append(path)
+    return paths
+
+
+def load_kokoro():
+    model_path, voices_path = ensure_model_files()
+    from kokoro_onnx import Kokoro  # imported on demand: takes seconds to load
+
+    return Kokoro(str(model_path), str(voices_path))
+
+
+def voice_styles(kokoro, voice):
+    body = kokoro.get_voice_style(voice)
+    partner = BLEND_PARTNER.get(voice[:2], voice)
+    blend = body * 0.7 + kokoro.get_voice_style(partner) * 0.3
+    return {"body": (body, 1.0), "header": (blend, 0.9), "quote": (blend, 1.0)}
+
+
+def start_player():
+    if shutil.which("mpv"):
+        cmd = [
+            "mpv", "--really-quiet", "--no-video",
+            "--demuxer=rawaudio", "--demuxer-rawaudio-format=floatle",
+            f"--demuxer-rawaudio-rate={SAMPLE_RATE}", "--demuxer-rawaudio-channels=2",
+            "-",
+        ]
+    elif shutil.which("ffplay"):
+        cmd = [
+            "ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet",
+            "-f", "f32le", "-ar", str(SAMPLE_RATE), "-ac", "2", "-i", "-",
+        ]
+    else:
+        sys.exit("no audio player found; install mpv")
+    return subprocess.Popen(cmd, stdin=subprocess.PIPE)
+
+
+def feed_player(player, pending):
+    # Dual-mono: some players route a plain mono stream to the left channel only.
+    try:
+        while (samples := pending.get()) is not None:
+            player.stdin.write(np.repeat(samples, 2).tobytes())
+        player.stdin.close()
+    except BrokenPipeError:
+        pass  # player was closed mid-narration; stream() notices and stops
+
+
+def stream(events, kokoro, voice, speed, player):
+    """Synthesize events in order, playing each chunk as soon as it is ready."""
+    styles = voice_styles(kokoro, voice)
+    pending = Queue()
+    feeder = threading.Thread(target=feed_player, args=(player, pending), daemon=True)
+    feeder.start()
+
+    total = sum(1 for e in events if isinstance(e, Speak))
+    done = 0
+    pieces = []
+    for event in events:
+        if player.poll() is not None:
+            break
+        if isinstance(event, Pause):
+            samples = np.zeros(int(event.seconds * SAMPLE_RATE), dtype=np.float32)
+        else:
+            style_voice, style_speed = styles[event.style]
+            samples, _ = kokoro.create(event.text, voice=style_voice, speed=speed * style_speed, lang="en-us")
+            samples = samples.astype(np.float32, copy=False)
+            done += 1
+            print(f"\r  synthesizing {done}/{total}", end="", flush=True)
+        pieces.append(samples)
+        pending.put(samples)
+    print()
+
+    pending.put(None)
+    feeder.join()
+    player.wait()
+    return np.concatenate(pieces) if pieces else np.zeros(0, dtype=np.float32)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Read an article aloud with local TTS.")
+    parser.add_argument("source", nargs="?", help="article URL, markdown file, or - for stdin")
+    parser.add_argument("--voice", default="af_heart", help="Kokoro voice (default: af_heart)")
+    parser.add_argument("--voices", action="store_true", help="list available voices and exit")
+    parser.add_argument("--speed", type=float, default=1.0, help="speech speed (default: 1.0)")
+    args = parser.parse_args()
+
+    if args.voices:
+        print("\n".join(sorted(load_kokoro().get_voices())))
+        return
+    if not args.source:
+        parser.error("source is required")
+
+    events = to_events(load_markdown(args.source))
+    if not any(isinstance(e, Speak) for e in events):
+        sys.exit("nothing to narrate")
+
+    kokoro = load_kokoro()
+    if args.voice not in kokoro.get_voices():
+        sys.exit(f"unknown voice '{args.voice}'; run narrate --voices for the list")
+    player = start_player()
+    samples = stream(events, kokoro, args.voice, args.speed, player)
+
+    # Kept in the cache (dual-mono, like the live stream) so a future --save
+    # option can reuse the last narration.
+    if samples.size:
+        soundfile.write(CACHE_DIR / "last.wav", np.column_stack([samples, samples]), SAMPLE_RATE)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print()
+        sys.exit(130)

@@ -121,7 +121,7 @@ setup_packages() {
     ImageMagick ffmpegthumbs yt-dlp mpv nmap rsync zstd \
     procs duf du-dust htop btop fastfetch \
     pandoc glow w3m httpie \
-    gh pipx awscli2 \
+    gh pipx awscli2 uv \
     wl-clipboard v4l-utils \
     gnupg2 pinentry-qt pass \
     unzip curl wget tree watch \
