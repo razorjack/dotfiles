@@ -7,17 +7,13 @@
 #     "markdown-it-py",
 #     "soundfile",
 #     "numpy",
+#     "rzr",
 # ]
+# [tool.uv.sources]
+# rzr = { path = "../lib/rzr", editable = true }
 # ///
-"""Read an article aloud with local TTS (Kokoro).
+"""Read an article aloud with local TTS (Kokoro)."""
 
-Usage:
-    narrate https://example.com/article
-    narrate notes.md
-    cat notes.md | narrate -
-"""
-
-import argparse
 import re
 import shutil
 import subprocess
@@ -31,11 +27,13 @@ from queue import Queue
 import numpy as np
 import soundfile
 from markdown_it import MarkdownIt
+from rzr import cli, die, info, main, ok, out, progress, status, warn
 
-CACHE_DIR = Path.home() / ".cache" / "narrate"
+CACHE = Path.home() / ".cache" / "narrate"
+LAST = CACHE / "last.wav"
 MODEL_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1"
 MODEL_FILES = ("kokoro-v1.0.onnx", "voices-v1.0.bin")
-SAMPLE_RATE = 24000
+RATE = 24000
 
 PAUSE_BEFORE_HEADER = 1.2
 PAUSE_AFTER_HEADER = 0.8
@@ -51,11 +49,23 @@ PAUSE_SECTION_BREAK = 1.0
 # audibly shifts tone. Keyed by voice name prefix (af = American female, ...).
 BLEND_PARTNER = {"af": "af_nicole", "am": "am_michael", "bf": "bf_emma", "bm": "bm_george"}
 
+HELP = """\
+Examples:
+  narrate https://example.com/article
+  narrate notes.md
+  cat notes.md | narrate -
+  narrate --voice bm_george --speed 1.2 notes.md
+  narrate --save talk.wav notes.md
+
+Headings and quotes are read in a slightly different voice. Tables and code
+blocks are skipped. The last narration is kept at ~/.cache/narrate/last.wav.
+"""
+
 
 @dataclass
 class Speak:
     text: str
-    style: str  # "body", "header", or "quote"
+    style: str  # body, header or quote
 
 
 @dataclass
@@ -71,29 +81,39 @@ def load_markdown(source):
     path = Path(source)
     if path.exists():
         return path.read_text()
-    # A missing path that looks like "example.com/article" is a pasted URL
-    # missing its scheme.
-    if re.match(r"[\w.-]+\.[a-z]{2,}(/|$)", source):
+    if looks_like_url(source):
         return fetch_article(f"https://{source}")
-    sys.exit(f"no such file: {source}")
+    die(f"no such file: [path]{source}[/]")
+
+
+def looks_like_url(text):
+    if Path(text).suffix in (".md", ".markdown", ".txt"):
+        return False
+    return re.match(r"[\w.-]+\.[a-z]{2,}(/|$)", text)
 
 
 def fetch_article(url):
-    import trafilatura  # imported on demand: slow, and only needed for URLs
+    import trafilatura  # slow import, only needed for URLs
 
-    html = trafilatura.fetch_url(url)
+    with status(f"fetching [path]{url}[/]"):
+        html = trafilatura.fetch_url(url)
     if not html:
-        sys.exit(f"could not fetch {url}")
+        die(f"could not fetch [path]{url}[/]")
     markdown = trafilatura.extract(
         html, output_format="markdown", include_links=False, include_images=False
     )
     if not markdown:
-        sys.exit("no article content found on that page")
+        die("no article content found on that page")
 
     meta = trafilatura.extract_metadata(html)
     if meta and meta.title and not markdown.lstrip().startswith("#"):
         markdown = f"# {meta.title}\n\n{markdown}"
     return markdown
+
+
+def title_of(markdown):
+    match = re.search(r"^#\s+(.+)$", markdown, re.MULTILINE)
+    return match.group(1).strip() if match else None
 
 
 def to_events(markdown):
@@ -135,8 +155,7 @@ def to_events(markdown):
             case "hr":
                 events.append(Pause(PAUSE_SECTION_BREAK))
             case "inline":
-                for chunk in chunks(inline_text(token)):
-                    events.append(Speak(chunk, style))
+                events += [Speak(chunk, style) for chunk in chunks(inline_text(token))]
             case "paragraph_close":
                 events.append(Pause(PAUSE_AFTER_LIST_ITEM if list_depth else PAUSE_AFTER_PARAGRAPH))
 
@@ -169,35 +188,35 @@ def chunks(text, limit=300):
     return batches
 
 
-def download(url, dest):
-    def progress(blocks, block_size, total):
-        if total > 0:
-            percent = min(100, blocks * block_size * 100 // total)
-            print(f"\r  {percent}%", end="", flush=True)
-
-    urllib.request.urlretrieve(url, dest, reporthook=progress)
-    print()
+def download(url, dest, name):
+    with progress(bytes=True) as bar, urllib.request.urlopen(url) as response:
+        task = bar.add_task(name, total=int(response.headers.get("Content-Length", 0)) or None)
+        with open(dest, "wb") as file:
+            while block := response.read(1 << 16):
+                file.write(block)
+                bar.advance(task, len(block))
 
 
 def ensure_model_files():
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    CACHE.mkdir(parents=True, exist_ok=True)
     paths = []
     for name in MODEL_FILES:
-        path = CACHE_DIR / name
+        path = CACHE / name
         if not path.exists():
-            print(f"downloading {name} (one-time) ...")
+            info(f"downloading [path]{name}[/] (one time)")
             partial = path.with_name(name + ".part")
-            download(f"{MODEL_URL}/{name}", partial)
+            download(f"{MODEL_URL}/{name}", partial, name)
             partial.rename(path)
         paths.append(path)
     return paths
 
 
 def load_kokoro():
-    model_path, voices_path = ensure_model_files()
-    from kokoro_onnx import Kokoro  # imported on demand: takes seconds to load
+    model, voices = ensure_model_files()
+    with status("loading voice model"):
+        from kokoro_onnx import Kokoro  # slow import
 
-    return Kokoro(str(model_path), str(voices_path))
+        return Kokoro(str(model), str(voices))
 
 
 def voice_styles(kokoro, voice):
@@ -212,16 +231,16 @@ def start_player():
         cmd = [
             "mpv", "--really-quiet", "--no-video",
             "--demuxer=rawaudio", "--demuxer-rawaudio-format=floatle",
-            f"--demuxer-rawaudio-rate={SAMPLE_RATE}", "--demuxer-rawaudio-channels=2",
+            f"--demuxer-rawaudio-rate={RATE}", "--demuxer-rawaudio-channels=2",
             "-",
         ]
     elif shutil.which("ffplay"):
         cmd = [
             "ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet",
-            "-f", "f32le", "-ar", str(SAMPLE_RATE), "-ac", "2", "-i", "-",
+            "-f", "f32le", "-ar", str(RATE), "-ac", "2", "-i", "-",
         ]
     else:
-        sys.exit("no audio player found; install mpv")
+        die("no audio player found; install mpv")
     return subprocess.Popen(cmd, stdin=subprocess.PIPE)
 
 
@@ -242,23 +261,21 @@ def stream(events, kokoro, voice, speed, player):
     feeder = threading.Thread(target=feed_player, args=(player, pending), daemon=True)
     feeder.start()
 
-    total = sum(1 for e in events if isinstance(e, Speak))
-    done = 0
     pieces = []
-    for event in events:
-        if player.poll() is not None:
-            break
-        if isinstance(event, Pause):
-            samples = np.zeros(int(event.seconds * SAMPLE_RATE), dtype=np.float32)
-        else:
-            style_voice, style_speed = styles[event.style]
-            samples, _ = kokoro.create(event.text, voice=style_voice, speed=speed * style_speed, lang="en-us")
-            samples = samples.astype(np.float32, copy=False)
-            done += 1
-            print(f"\r  synthesizing {done}/{total}", end="", flush=True)
-        pieces.append(samples)
-        pending.put(samples)
-    print()
+    with progress() as bar:
+        task = bar.add_task("narrating", total=sum(isinstance(e, Speak) for e in events))
+        for event in events:
+            if player.poll() is not None:
+                break
+            if isinstance(event, Pause):
+                samples = np.zeros(int(event.seconds * RATE), dtype=np.float32)
+            else:
+                style_voice, style_speed = styles[event.style]
+                samples, _ = kokoro.create(event.text, voice=style_voice, speed=speed * style_speed, lang="en-us")
+                samples = samples.astype(np.float32, copy=False)
+                bar.advance(task)
+            pieces.append(samples)
+            pending.put(samples)
 
     pending.put(None)
     feeder.join()
@@ -266,39 +283,55 @@ def stream(events, kokoro, voice, speed, player):
     return np.concatenate(pieces) if pieces else np.zeros(0, dtype=np.float32)
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Read an article aloud with local TTS.")
+def duration(samples):
+    seconds = int(samples.size / RATE)
+    return f"{seconds // 60}:{seconds % 60:02d}"
+
+
+@main
+def narrate():
+    parser = cli("narrate", "Read an article aloud with local TTS (Kokoro).", HELP)
     parser.add_argument("source", nargs="?", help="article URL, markdown file, or - for stdin")
-    parser.add_argument("--voice", default="af_heart", help="Kokoro voice (default: af_heart)")
+    parser.add_argument("-v", "--voice", default="af_heart", help="Kokoro voice (default: %(default)s)")
+    parser.add_argument("-s", "--speed", type=float, default=1.0, help="speech speed (default: %(default)s)")
+    parser.add_argument("-o", "--save", type=Path, metavar="FILE", help="also write the narration to a WAV file")
     parser.add_argument("--voices", action="store_true", help="list available voices and exit")
-    parser.add_argument("--speed", type=float, default=1.0, help="speech speed (default: 1.0)")
     args = parser.parse_args()
 
     if args.voices:
-        print("\n".join(sorted(load_kokoro().get_voices())))
+        out.print("\n".join(sorted(load_kokoro().get_voices())))
         return
     if not args.source:
         parser.error("source is required")
 
-    events = to_events(load_markdown(args.source))
+    markdown = load_markdown(args.source)
+    events = to_events(markdown)
     if not any(isinstance(e, Speak) for e in events):
-        sys.exit("nothing to narrate")
+        die("nothing to narrate")
 
     kokoro = load_kokoro()
     if args.voice not in kokoro.get_voices():
-        sys.exit(f"unknown voice '{args.voice}'; run narrate --voices for the list")
+        die(f"unknown voice [accent]{args.voice}[/]; run [cmd]narrate --voices[/] for the list")
+
+    if title := title_of(markdown):
+        out.print(f"[title]{title}[/]")
+    info(f"[accent]{args.voice}[/] [muted]at[/] [num]{args.speed:g}x[/]")
+
     player = start_player()
     samples = stream(events, kokoro, args.voice, args.speed, player)
+    if not samples.size:
+        return
 
-    # Kept in the cache (dual-mono, like the live stream) so a future --save
-    # option can reuse the last narration.
-    if samples.size:
-        soundfile.write(CACHE_DIR / "last.wav", np.column_stack([samples, samples]), SAMPLE_RATE)
+    stereo = np.column_stack([samples, samples])
+    soundfile.write(LAST, stereo, RATE)
+    if args.save:
+        soundfile.write(args.save, stereo, RATE)
+        ok(f"saved [path]{args.save}[/] [muted]({duration(samples)})[/]")
+    elif player.returncode:
+        warn(f"stopped after [num]{duration(samples)}[/]")
+    else:
+        ok(f"done [muted]({duration(samples)})[/]")
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print()
-        sys.exit(130)
+    narrate()

@@ -132,6 +132,11 @@
 !/.local/bin/scan2pdf
 !/.local/bin/yadm
 !/.local/bin/za
+!/.local/lib/
+/.local/lib/*
+!/.local/lib/rzr/
+/.local/lib/rzr/.venv
+/.local/lib/rzr/**/__pycache__
 
 # kitty is tracked wholesale, so ignore the plain name yadm links to the
 # ##os.Linux alternate on Linux (yadm also auto-excludes generated links via

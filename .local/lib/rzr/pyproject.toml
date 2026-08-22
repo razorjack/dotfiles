@@ -1,0 +1,13 @@
+[project]
+name = "rzr"
+version = "0.1.0"
+description = "Shared look and helpers for razorjack's command line tools"
+requires-python = ">=3.11"
+dependencies = [
+    "rich>=13",
+    "rich-argparse>=1.6",
+]
+
+[build-system]
+requires = ["uv_build>=0.7,<1"]
+build-backend = "uv_build"
