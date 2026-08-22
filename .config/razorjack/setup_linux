@@ -75,7 +75,7 @@ setup_repos() {
     https://dl.flathub.org/repo/flathub.flatpakrepo
 
   msg "COPRs (tools not in Fedora repos)"
-  for copr in scottames/ghostty varlad/zellij atim/lazygit atim/starship alternateved/keyd; do
+  for copr in scottames/ghostty varlad/zellij atim/lazygit atim/starship alternateved/keyd hazel-bunny/ports; do
     sudo dnf copr enable -y "$copr"
   done
 
@@ -119,6 +119,7 @@ setup_packages() {
     ctags starship lazygit \
     the_silver_searcher ack \
     ImageMagick ffmpegthumbs yt-dlp mpv nmap rsync zstd \
+    ocrmypdf tesseract-langpack-pol jbig2enc python3-img2pdf poppler-utils sane-backends sane-airscan \
     procs duf du-dust htop btop fastfetch \
     pandoc glow w3m httpie \
     gh pipx awscli2 uv \

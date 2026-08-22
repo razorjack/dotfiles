@@ -129,6 +129,7 @@
 !/.local/bin/
 /.local/bin/*
 !/.local/bin/narrate
+!/.local/bin/scan2pdf
 !/.local/bin/yadm
 !/.local/bin/za
 

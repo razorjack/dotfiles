@@ -1,0 +1,208 @@
+#!/usr/bin/env python3
+"""scan2pdf - scan or take a PDF, resample to 1-bit, deskew, OCR (eng+pol).
+
+  scan2pdf FILE...          process existing PDFs in place (originals backed up
+                            to _scan2pdf_originals/ next to each file)
+  scan2pdf [-o OUT.pdf]     scan via SANE (eSCL/AirScan), then process
+  scan2pdf --restore FILE   put the backed-up original back
+
+Dependencies: scanimage (sane-backends + sane-airscan), pdftoppm (poppler),
+magick (ImageMagick 7), img2pdf, ocrmypdf, tesseract eng+pol, jbig2enc.
+"""
+
+import argparse
+import datetime
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+BACKUP_DIR = "_scan2pdf_originals"
+CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "scan2pdf"
+DEVICE_CACHE = CONFIG_DIR / "device.json"
+
+
+def die(msg, code=1):
+    print(f"scan2pdf: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+def run(cmd, dry_run, **kw):
+    print("+ " + " ".join(str(c) for c in cmd), file=sys.stderr)
+    if dry_run:
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+    return subprocess.run(cmd, check=True, **kw)
+
+
+def check_tools(names, dry_run=False):
+    if dry_run:
+        return
+    missing = [n for n in names if shutil.which(n) is None]
+    if missing:
+        die("missing tools: " + ", ".join(missing))
+
+
+# --- scanning ---------------------------------------------------------------
+
+def discover_device():
+    out = subprocess.run(["scanimage", "-L"], capture_output=True, text=True, check=True).stdout
+    devices = re.findall(r"device `([^']+)'", out)
+    preferred = [d for d in devices if d.startswith(("escl:", "airscan:"))]
+    if not preferred:
+        die("no eSCL/AirScan scanner found by `scanimage -L`" + (f"; saw: {devices}" if devices else ""))
+    return preferred[0]
+
+
+def get_device(explicit, dry_run=False):
+    if explicit:
+        return explicit
+    if dry_run and shutil.which("scanimage") is None:
+        return "escl:<device>"
+    try:
+        return json.loads(DEVICE_CACHE.read_text())["device"]
+    except (OSError, KeyError, ValueError):
+        pass
+    device = discover_device()
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    DEVICE_CACHE.write_text(json.dumps({"device": device}) + "\n")
+    print(f"scan2pdf: using scanner {device} (cached in {DEVICE_CACHE})", file=sys.stderr)
+    return device
+
+
+def scan(out_pdf, args):
+    device = get_device(args.device, args.dry_run)
+    mode = "Color" if args.color else "Gray"
+    run(["scanimage", "-d", device, "--mode", mode, "--resolution", str(args.dpi),
+         "--format", "pdf", "-o", str(out_pdf)], args.dry_run)
+
+
+# --- processing -------------------------------------------------------------
+
+def threshold_pages(src_pdf, workdir, args):
+    """Rasterize, Otsu-threshold each page, return list of 1-bit PNGs."""
+    run(["pdftoppm", "-r", str(args.dpi), "-gray", "-png", str(src_pdf), str(workdir / "page")], args.dry_run)
+    pages = sorted(workdir.glob("page-*.png"))
+    if not pages and not args.dry_run:
+        die(f"pdftoppm produced no pages from {src_pdf}")
+    bw = []
+    for page in pages:
+        out = page.with_name(page.stem + "-bw.png")
+        run(["magick", str(page), "-auto-threshold", "OTSU", "-type", "bilevel", str(out)], args.dry_run)
+        bw.append(out)
+    return bw
+
+
+def process(src_pdf, dst_pdf, args):
+    """Read src_pdf, write the finished PDF to dst_pdf."""
+    with tempfile.TemporaryDirectory(prefix="scan2pdf-") as tmp:
+        work = Path(tmp)
+        ocr_input = src_pdf
+        if not args.no_threshold:
+            pages = threshold_pages(src_pdf, work, args)
+            ocr_input = work / "bw.pdf"
+            run(["img2pdf", "-o", str(ocr_input)] + [str(p) for p in pages], args.dry_run)
+        cmd = ["ocrmypdf", "-l", args.lang, "--deskew", "--optimize", "3", "--skip-text"]
+        if args.no_threshold:
+            cmd.append("--clean")
+        cmd += args.ocrmypdf_args
+        run(cmd + [str(ocr_input), str(dst_pdf)], args.dry_run)
+
+
+def backup_path(pdf):
+    return pdf.parent / BACKUP_DIR / pdf.name
+
+
+def process_in_place(pdf, args):
+    pdf = pdf.resolve()
+    if not pdf.is_file():
+        die(f"{pdf}: no such file (positional arguments must be existing PDFs; use -o to scan)")
+    backup = backup_path(pdf)
+    if backup.exists():
+        die(f"{pdf.name}: already processed, original is at {backup} (use --restore to undo)")
+    tmp_out = pdf.with_name(f".{pdf.name}.scan2pdf.tmp")
+    process(pdf, tmp_out, args)
+    if args.dry_run:
+        return
+    backup.parent.mkdir(exist_ok=True)
+    shutil.copy2(pdf, backup)
+    os.replace(tmp_out, pdf)
+    print(f"scan2pdf: {pdf.name}: {backup.stat().st_size // 1024} KB -> {pdf.stat().st_size // 1024} KB")
+
+
+def restore(pdf):
+    pdf = pdf.resolve()
+    backup = backup_path(pdf)
+    if not backup.is_file():
+        die(f"no backup at {backup}")
+    os.replace(backup, pdf)
+    try:
+        backup.parent.rmdir()
+    except OSError:
+        pass
+    print(f"scan2pdf: restored {pdf}")
+
+
+# --- cli --------------------------------------------------------------------
+
+def main():
+    p = argparse.ArgumentParser(prog="scan2pdf", description=__doc__.split("\n\n")[0],
+                                formatter_class=argparse.RawDescriptionHelpFormatter,
+                                epilog="Arguments after `--` are passed to ocrmypdf.")
+    p.add_argument("files", nargs="*", type=Path, metavar="FILE", help="existing PDFs to process in place")
+    p.add_argument("-o", "--output", type=Path, metavar="OUT.pdf", help="scan to this file (scan mode)")
+    p.add_argument("--restore", action="store_true", help="restore FILE(s) from backup")
+    p.add_argument("-l", "--lang", default="eng+pol", help="tesseract languages (default: %(default)s)")
+    p.add_argument("-r", "--dpi", type=int, default=300, help="scan/raster resolution (default: %(default)s)")
+    p.add_argument("--no-threshold", action="store_true", help="skip 1-bit resampling (grayscale documents)")
+    p.add_argument("--color", action="store_true", help="scan in color (implies --no-threshold)")
+    p.add_argument("--device", help="SANE device (default: first escl:/airscan: device, cached)")
+    p.add_argument("-n", "--dry-run", action="store_true", help="print commands without running them")
+    argv = sys.argv[1:]
+    ocrmypdf_args = []
+    if "--" in argv:
+        i = argv.index("--")
+        argv, ocrmypdf_args = argv[:i], argv[i + 1:]
+    args = p.parse_args(argv)
+    args.ocrmypdf_args = ocrmypdf_args
+    if args.color:
+        args.no_threshold = True
+
+    if args.restore:
+        if args.output or not args.files:
+            p.error("--restore takes FILE arguments only")
+        for f in args.files:
+            restore(f)
+        return
+
+    if args.files and args.output:
+        p.error("-o is for scan mode; it cannot be combined with input files")
+
+    if args.files:
+        check_tools(["pdftoppm", "magick", "img2pdf", "ocrmypdf"], args.dry_run)
+        for f in args.files:
+            process_in_place(f, args)
+        return
+
+    check_tools(["scanimage", "pdftoppm", "magick", "img2pdf", "ocrmypdf"], args.dry_run)
+    out = args.output or Path(datetime.datetime.now().strftime("scan-%Y-%m-%d-%H%M%S.pdf"))
+    if out.exists():
+        die(f"{out} already exists")
+    with tempfile.TemporaryDirectory(prefix="scan2pdf-") as tmp:
+        raw = Path(tmp) / "raw.pdf"
+        scan(raw, args)
+        process(raw, out, args)
+    if not args.dry_run:
+        print(f"scan2pdf: wrote {out} ({out.stat().st_size // 1024} KB)")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except subprocess.CalledProcessError as e:
+        die(f"command failed ({e.returncode}): {' '.join(str(c) for c in e.cmd)}", e.returncode)
+    except KeyboardInterrupt:
+        sys.exit(130)
