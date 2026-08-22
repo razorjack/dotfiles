@@ -102,10 +102,31 @@ Mise manages **all** language runtimes (Ruby, Node, ...). Never add a brew-insta
 
 ## Development Environment
 
-- **Primary Languages**: Ruby, JavaScript
+- **Primary Languages**: Ruby, JavaScript (projects); Python (own tools, see below)
 - **Version Manager**: `mise` (manages both Ruby and Node.js installations)
 - **Editor**: Neovim with LazyVim
 - **Git TUI**: Lazygit (aliased as `gg`)
+
+## Own Tools (`~/.local/bin`)
+
+- **Python first.** A tool is a single file starting with `#!/usr/bin/env -S uv run --script` and a PEP 723 block (`# /// script ... # ///`) that declares `requires-python` and `dependencies`. uv resolves and caches on first run, and manages its own interpreter – tools never depend on mise's Python or on a project's `.mise.toml`. Reference: `narrate`, `scan2pdf`.
+- **Bash** only for short glue with no library needs and trivial arguments (`za` is the shape). Once a tool needs real argument parsing, temp files, JSON, or any library, it is Python.
+- **Native binaries** (tesseract, ghostscript, sane, ...) cannot come through uv: add them to both `~/.config/razorjack/Brewfile` and `setup_linux` (Fedora repos, else COPR – never brew on Linux).
+- **Shared look: `~/.local/lib/rzr`** (rich + rich-argparse, OneDark theme). Every Python tool depends on it:
+  ```
+  # dependencies = [..., "rzr"]
+  # [tool.uv.sources]
+  # rzr = { path = "../lib/rzr", editable = true }
+  ```
+  and builds its interface from its helpers: `cli()` for the parser (themed help, raw epilog for examples), `info`/`ok`/`warn`/`fail`/`die` for messages, `status()` for spinners, `progress()` for bars, `run()` for subprocesses, `@main` for interrupt and exit-code handling. Markup uses semantic styles only (`[title]`, `[accent]`, `[path]`, `[num]`, `[cmd]`, `[muted]`, `[ok]`, `[warn]`, `[err]`), never colors – the theme is the single place colors live. Changes to the look go into `rzr`, not into individual tools.
+- **Output.** Subprocess output is suppressed by default (`run()` captures it and shows stderr only on failure) and replaced with a status line or progress bar of our own. Exception: a long single-step process whose output has no replacement and would be a net loss to hide. Branding is restrained: no banners; a `[title]` line when the run has a natural title, `▸` for steps, `✓`/`!`/`✗` for outcomes, transient progress bars. Delightful every run, nothing that gets old.
+- **Tracking.** New scripts need a `!/.local/bin/<name>` line in `.gitignore`.
+
+## Code Style
+
+- "When something is beautiful, it's likely to be correct" (DHH). Applies to what a tool prints and to the code itself, including bash scripts in `bin/`.
+- Names short but unambiguous. Read the code back: if it feels good, it is good; if it feels unclean, ambiguous or otherwise off, refactor until it does.
+- Code is self-explanatory; comments are for gotchas, workarounds and non-obvious constraints. If a comment would explain *what* the code does, rewrite the code instead.
 
 ## Preferred CLI Tools
 
