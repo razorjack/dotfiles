@@ -119,7 +119,7 @@ setup_packages() {
     ctags starship lazygit \
     the_silver_searcher ack \
     ImageMagick ffmpegthumbs yt-dlp mpv nmap rsync zstd \
-    ocrmypdf tesseract-langpack-pol jbig2enc python3-img2pdf poppler-utils sane-backends sane-airscan \
+    tesseract tesseract-langpack-pol ghostscript jbig2enc pngquant unpaper poppler-utils sane-backends sane-airscan \
     procs duf du-dust htop btop fastfetch \
     pandoc glow w3m httpie \
     gh pipx awscli2 uv \

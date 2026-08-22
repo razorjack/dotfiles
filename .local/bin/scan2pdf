@@ -1,4 +1,11 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#     "ocrmypdf>=17,<18",
+#     "img2pdf",
+# ]
+# ///
 """scan2pdf - scan or take a PDF, resample to 1-bit, deskew, OCR (eng+pol).
 
   scan2pdf FILE...          process existing PDFs in place (originals backed up
@@ -6,8 +13,9 @@
   scan2pdf [-o OUT.pdf]     scan via SANE (eSCL/AirScan), then process
   scan2pdf --restore FILE   put the backed-up original back
 
-Dependencies: scanimage (sane-backends + sane-airscan), pdftoppm (poppler),
-magick (ImageMagick 7), img2pdf, ocrmypdf, tesseract eng+pol, jbig2enc.
+Python deps (ocrmypdf, img2pdf) come via uv. System deps: scanimage
+(sane-backends + sane-airscan), pdftoppm (poppler), magick (ImageMagick 7),
+tesseract + eng/pol data, ghostscript, jbig2enc.
 """
 
 import argparse
@@ -104,8 +112,8 @@ def process(src_pdf, dst_pdf, args):
         if not args.no_threshold:
             pages = threshold_pages(src_pdf, work, args)
             ocr_input = work / "bw.pdf"
-            run(["img2pdf", "-o", str(ocr_input)] + [str(p) for p in pages], args.dry_run)
-        cmd = ["ocrmypdf", "-l", args.lang, "--deskew", "--optimize", "3", "--skip-text"]
+            run([sys.executable, "-m", "img2pdf", "-o", str(ocr_input)] + [str(p) for p in pages], args.dry_run)
+        cmd = [sys.executable, "-m", "ocrmypdf", "-l", args.lang, "--deskew", "--optimize", "3", "--skip-text"]
         if args.no_threshold:
             cmd.append("--clean")
         cmd += args.ocrmypdf_args
@@ -182,12 +190,12 @@ def main():
         p.error("-o is for scan mode; it cannot be combined with input files")
 
     if args.files:
-        check_tools(["pdftoppm", "magick", "img2pdf", "ocrmypdf"], args.dry_run)
+        check_tools(["pdftoppm", "magick", "tesseract", "gs"], args.dry_run)
         for f in args.files:
             process_in_place(f, args)
         return
 
-    check_tools(["scanimage", "pdftoppm", "magick", "img2pdf", "ocrmypdf"], args.dry_run)
+    check_tools(["scanimage", "pdftoppm", "magick", "tesseract", "gs"], args.dry_run)
     out = args.output or Path(datetime.datetime.now().strftime("scan-%Y-%m-%d-%H%M%S.pdf"))
     if out.exists():
         die(f"{out} already exists")
