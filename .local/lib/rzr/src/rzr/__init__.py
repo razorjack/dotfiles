@@ -11,6 +11,7 @@ import argparse
 import subprocess
 import sys
 from functools import wraps
+from pathlib import Path
 
 from rich.console import Console
 from rich.progress import (
@@ -88,7 +89,7 @@ def status(msg):
     return out.status(msg, spinner="dots", spinner_style="accent")
 
 
-def progress(*, bytes=False, transient=True):
+def progress(*, bytes=False, transient=True, disable=False):
     columns = [
         SpinnerColumn(spinner_name="dots", style="accent", finished_text="[ok]✓[/]"),
         TextColumn("{task.description}"),
@@ -96,13 +97,14 @@ def progress(*, bytes=False, transient=True):
         *([DownloadColumn(), TransferSpeedColumn()] if bytes else [MofNCompleteColumn()]),
         TimeRemainingColumn(),
     ]
-    return Progress(*columns, console=out, transient=transient, disable=not out.is_terminal)
+    return Progress(*columns, console=out, transient=transient, disable=disable or not out.is_terminal)
 
 
 def run(cmd, *, quiet=True, dry_run=False, **kw):
     cmd = [str(c) for c in cmd]
     if dry_run:
-        out.print(f"[cmd]$ {' '.join(cmd)}[/]")
+        shown = [Path(cmd[0]).name, *cmd[1:]]
+        out.print(f"[cmd]$ {' '.join(shown)}[/]", soft_wrap=True)
         return subprocess.CompletedProcess(cmd, 0, "", "")
     result = subprocess.run(cmd, capture_output=quiet, text=True, **kw)
     if result.returncode:
