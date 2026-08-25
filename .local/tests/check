@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# ~/.local/tests/check [--fix] [tool...] – ruff lint + format and pytest for the Python tools
+# in ~/.local/bin. Tests run inside each tool's own uv script environment.
+set -euo pipefail
+
+tests=$(cd "$(dirname "$0")" && pwd)
+bin=$tests/../bin
+fix=0
+[[ "${1:-}" == "--fix" ]] && { fix=1; shift; }
+
+tools=("$@")
+if [[ ${#tools[@]} -eq 0 ]]; then
+  for f in "$bin"/*; do
+    [[ -f "$f" ]] && head -c 40 "$f" | grep -q 'uv run --script' && tools+=("$(basename "$f")")
+  done
+fi
+
+status=0
+for tool in "${tools[@]}"; do
+  files=("$bin/$tool")
+  [[ -f "$tests/test_$tool.py" ]] && files+=("$tests/test_$tool.py" "$tests/conftest.py")
+  echo "▸ $tool"
+  if [[ $fix -eq 1 ]]; then
+    uvx ruff format --quiet "${files[@]}" || status=1
+    uvx ruff check --fix "${files[@]}" || status=1
+  else
+    uvx ruff format --check --quiet "${files[@]}" || status=1
+    uvx ruff check "${files[@]}" || status=1
+  fi
+  if [[ -f "$tests/test_$tool.py" ]]; then
+    uv sync --script "$bin/$tool" --quiet
+    python=$(uv python find --script "$bin/$tool")
+    uv pip install --python "$python" --quiet pytest
+    PYTHONDONTWRITEBYTECODE=1 "$python" -m pytest -q -p no:cacheprovider "$tests/test_$tool.py" || status=1
+  fi
+done
+exit $status

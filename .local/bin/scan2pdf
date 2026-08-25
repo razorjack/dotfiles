@@ -11,6 +11,7 @@
 # ///
 """Scan or take a PDF, resample to 1-bit, deskew, OCR (eng+pol)."""
 
+import contextlib
 import datetime
 import json
 import os
@@ -63,6 +64,7 @@ def check_tools(names):
 
 # --- scanning ---------------------------------------------------------------
 
+
 def discover_device():
     listing = subprocess.run(["scanimage", "-L"], capture_output=True, text=True, check=True).stdout
     devices = re.findall(r"device `([^']+)'", listing)
@@ -93,11 +95,26 @@ def scan(dest, args):
     device = device_for(args)
     mode = "Color" if args.color else "Gray"
     with status("scanning"):
-        run(["scanimage", "-d", device, "--mode", mode, "--resolution", args.dpi,
-             "--format", "pdf", "-o", dest], dry_run=args.dry_run)
+        run(
+            [
+                "scanimage",
+                "-d",
+                device,
+                "--mode",
+                mode,
+                "--resolution",
+                args.dpi,
+                "--format",
+                "pdf",
+                "-o",
+                dest,
+            ],
+            dry_run=args.dry_run,
+        )
 
 
 # --- processing -------------------------------------------------------------
+
 
 def rasterize(src, work, args):
     run(["pdftoppm", "-r", args.dpi, "-gray", "-png", src, work / "page"], dry_run=args.dry_run)
@@ -114,20 +131,38 @@ def threshold(page, args):
 
 
 def ocr(src, dest, args):
-    cmd = [sys.executable, "-m", "ocrmypdf", "--quiet", "-l", args.lang, "--deskew", "--optimize", "3", "--skip-text"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "ocrmypdf",
+        "--quiet",
+        "-l",
+        args.lang,
+        "--deskew",
+        "--optimize",
+        "3",
+        "--skip-text",
+    ]
     if args.no_threshold:
         cmd.append("--clean")
     run(cmd + args.ocrmypdf_args + [src, dest], dry_run=args.dry_run)
 
 
 def process(src, dest, label, args):
-    with tempfile.TemporaryDirectory(prefix="scan2pdf-") as tmp, progress(disable=args.dry_run) as bar:
+    with (
+        tempfile.TemporaryDirectory(prefix="scan2pdf-") as tmp,
+        progress(disable=args.dry_run) as bar,
+    ):
         work = Path(tmp)
         task = bar.add_task(f"[path]{label}[/] [muted]rasterizing[/]", total=None)
         ocr_input = src
         if not args.no_threshold:
             pages = rasterize(src, work, args)
-            bar.update(task, total=2 * len(pages) + 1, description=f"[path]{label}[/] [muted]thresholding[/]")
+            bar.update(
+                task,
+                total=2 * len(pages) + 1,
+                description=f"[path]{label}[/] [muted]thresholding[/]",
+            )
             bw = []
             for page in pages:
                 bw.append(threshold(page, args))
@@ -149,10 +184,16 @@ def backup_of(pdf):
 def process_in_place(pdf, args):
     pdf = pdf.resolve()
     if not pdf.is_file():
-        die(f"[path]{shown(pdf)}[/]: no such file (positional arguments are existing PDFs; use [cmd]-o[/] to scan)")
+        die(
+            f"[path]{shown(pdf)}[/]: no such file "
+            "(positional arguments are existing PDFs; use [cmd]-o[/] to scan)"
+        )
     backup = backup_of(pdf)
     if backup.exists():
-        die(f"[path]{pdf.name}[/]: already processed, original is at [path]{shown(backup)}[/] (use [cmd]--restore[/] to undo)")
+        die(
+            f"[path]{pdf.name}[/]: already processed, original is at [path]{shown(backup)}[/] "
+            "(use [cmd]--restore[/] to undo)"
+        )
     fresh = pdf.with_name(f".{pdf.name}.scan2pdf.tmp")
     process(pdf, fresh, pdf.name, args)
     if args.dry_run:
@@ -169,10 +210,8 @@ def restore(pdf):
     if not backup.is_file():
         die(f"no backup at [path]{shown(backup)}[/]")
     os.replace(backup, pdf)
-    try:
+    with contextlib.suppress(OSError):
         backup.parent.rmdir()
-    except OSError:
-        pass
     ok(f"restored [path]{pdf.name}[/] {kb(pdf)}")
 
 
@@ -190,23 +229,40 @@ def scan_and_process(args):
 
 # --- cli --------------------------------------------------------------------
 
+
 def parse_args():
     parser = cli("scan2pdf", __doc__, HELP)
-    parser.add_argument("files", nargs="*", type=Path, metavar="FILE", help="existing PDFs to process in place")
-    parser.add_argument("-o", "--output", type=Path, metavar="OUT.pdf", help="scan to this file (scan mode)")
+    parser.add_argument(
+        "files", nargs="*", type=Path, metavar="FILE", help="existing PDFs to process in place"
+    )
+    parser.add_argument(
+        "-o", "--output", type=Path, metavar="OUT.pdf", help="scan to this file (scan mode)"
+    )
     parser.add_argument("--restore", action="store_true", help="restore FILE(s) from backup")
-    parser.add_argument("-l", "--lang", default="eng+pol", help="tesseract languages (default: %(default)s)")
-    parser.add_argument("-r", "--dpi", type=int, default=300, help="scan/raster resolution (default: %(default)s)")
-    parser.add_argument("--no-threshold", action="store_true", help="skip 1-bit resampling (grayscale documents)")
-    parser.add_argument("--color", action="store_true", help="scan in color (implies --no-threshold)")
-    parser.add_argument("--device", help="SANE device (default: first escl:/airscan: device, cached)")
-    parser.add_argument("-n", "--dry-run", action="store_true", help="print commands without running them")
+    parser.add_argument(
+        "-l", "--lang", default="eng+pol", help="tesseract languages (default: %(default)s)"
+    )
+    parser.add_argument(
+        "-r", "--dpi", type=int, default=300, help="scan/raster resolution (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--no-threshold", action="store_true", help="skip 1-bit resampling (grayscale documents)"
+    )
+    parser.add_argument(
+        "--color", action="store_true", help="scan in color (implies --no-threshold)"
+    )
+    parser.add_argument(
+        "--device", help="SANE device (default: first escl:/airscan: device, cached)"
+    )
+    parser.add_argument(
+        "-n", "--dry-run", action="store_true", help="print commands without running them"
+    )
 
     argv = sys.argv[1:]
     passthrough = []
     if "--" in argv:
         split = argv.index("--")
-        argv, passthrough = argv[:split], argv[split + 1:]
+        argv, passthrough = argv[:split], argv[split + 1 :]
     args = parser.parse_args(argv)
     args.ocrmypdf_args = passthrough
     args.no_threshold = args.no_threshold or args.color

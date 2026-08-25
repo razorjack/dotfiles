@@ -229,15 +229,30 @@ def voice_styles(kokoro, voice):
 def start_player():
     if shutil.which("mpv"):
         cmd = [
-            "mpv", "--really-quiet", "--no-video",
-            "--demuxer=rawaudio", "--demuxer-rawaudio-format=floatle",
-            f"--demuxer-rawaudio-rate={RATE}", "--demuxer-rawaudio-channels=2",
+            "mpv",
+            "--really-quiet",
+            "--no-video",
+            "--demuxer=rawaudio",
+            "--demuxer-rawaudio-format=floatle",
+            f"--demuxer-rawaudio-rate={RATE}",
+            "--demuxer-rawaudio-channels=2",
             "-",
         ]
     elif shutil.which("ffplay"):
         cmd = [
-            "ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet",
-            "-f", "f32le", "-ar", str(RATE), "-ac", "2", "-i", "-",
+            "ffplay",
+            "-nodisp",
+            "-autoexit",
+            "-loglevel",
+            "quiet",
+            "-f",
+            "f32le",
+            "-ar",
+            str(RATE),
+            "-ac",
+            "2",
+            "-i",
+            "-",
         ]
     else:
         die("no audio player found; install mpv")
@@ -271,7 +286,9 @@ def stream(events, kokoro, voice, speed, player):
                 samples = np.zeros(int(event.seconds * RATE), dtype=np.float32)
             else:
                 style_voice, style_speed = styles[event.style]
-                samples, _ = kokoro.create(event.text, voice=style_voice, speed=speed * style_speed, lang="en-us")
+                samples, _ = kokoro.create(
+                    event.text, voice=style_voice, speed=speed * style_speed, lang="en-us"
+                )
                 samples = samples.astype(np.float32, copy=False)
                 bar.advance(task)
             pieces.append(samples)
@@ -292,9 +309,15 @@ def duration(samples):
 def narrate():
     parser = cli("narrate", "Read an article aloud with local TTS (Kokoro).", HELP)
     parser.add_argument("source", nargs="?", help="article URL, markdown file, or - for stdin")
-    parser.add_argument("-v", "--voice", default="af_heart", help="Kokoro voice (default: %(default)s)")
-    parser.add_argument("-s", "--speed", type=float, default=1.0, help="speech speed (default: %(default)s)")
-    parser.add_argument("-o", "--save", type=Path, metavar="FILE", help="also write the narration to a WAV file")
+    parser.add_argument(
+        "-v", "--voice", default="af_heart", help="Kokoro voice (default: %(default)s)"
+    )
+    parser.add_argument(
+        "-s", "--speed", type=float, default=1.0, help="speech speed (default: %(default)s)"
+    )
+    parser.add_argument(
+        "-o", "--save", type=Path, metavar="FILE", help="also write the narration to a WAV file"
+    )
     parser.add_argument("--voices", action="store_true", help="list available voices and exit")
     args = parser.parse_args()
 

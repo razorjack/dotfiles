@@ -27,6 +27,7 @@
 !/.config/AGENTS.md
 !/.config/CLAUDE.md
 !/.config/starship.toml
+!/.config/ruff/
 
 # Config directories tracked wholesale
 !/.config/ack/
@@ -137,6 +138,7 @@
 !/.local/lib/rzr/
 /.local/lib/rzr/.venv
 /.local/lib/rzr/**/__pycache__
+!/.local/tests/
 
 # kitty is tracked wholesale, so ignore the plain name yadm links to the
 # ##os.Linux alternate on Linux (yadm also auto-excludes generated links via

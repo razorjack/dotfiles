@@ -1,0 +1,7 @@
+# User-level ruff config: applies to any Python file without a project config,
+# which includes the extensionless tools in ~/.local/bin (pass them by path).
+target-version = "py311"
+line-length = 100
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
