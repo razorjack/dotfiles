@@ -51,3 +51,10 @@ def test_archive_rejects_root_and_missing_directory(xzarchive, tmp_path):
         xzarchive.archive(type(tmp_path)(tmp_path.anchor))
     with pytest.raises(FileNotFoundError):
         xzarchive.archive(tmp_path / "missing")
+
+
+def test_empty_argument_does_not_archive_current_directory(xzarchive, monkeypatch):
+    monkeypatch.setattr("sys.argv", ["xzarchive", ""])
+    with pytest.raises(SystemExit) as error:
+        xzarchive.xzarchive()
+    assert error.value.code == 2

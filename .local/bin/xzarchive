@@ -51,11 +51,13 @@ def xzarchive():
         "node_modules, public/uploads, and public/system. Replaces an existing\n"
         "archive only after compression succeeds.",
     )
-    parser.add_argument("directory", type=Path)
+    parser.add_argument("directory")
     args = parser.parse_args()
+    if not args.directory:
+        parser.error("directory must not be empty")
     try:
         with status("Archiving project"):
-            dest = archive(args.directory)
+            dest = archive(Path(args.directory))
     except (OSError, ValueError, tarfile.TarError, lzma.LZMAError) as error:
         die(escape(str(error)))
     ok(f"Saved [path]{escape(str(dest))}[/]")
