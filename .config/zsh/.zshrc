@@ -18,6 +18,7 @@ source "$HOME/.config/shell/interactive.sh"
 # paths.sh uses `brew shellenv sh`, which omits brew's zsh completions dir; add
 # it back before compinit.
 [[ -n "$HOMEBREW_PREFIX" && -d "$HOMEBREW_PREFIX/share/zsh/site-functions" ]] && fpath=("$HOMEBREW_PREFIX/share/zsh/site-functions" $fpath)
+[[ -d "$RZR_PREFIX/share/zsh-completions" ]] && fpath=("$RZR_PREFIX/share/zsh-completions" $fpath)
 
 autoload -Uz compinit
 zstyle ':completion:*' menu select
@@ -59,7 +60,6 @@ setopt HIST_VERIFY               # Don't execute immediately upon history expans
 ZSH_HIGHLIGHT_MAXLENGTH=200
 [[ -f $RZR_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]] && source $RZR_PREFIX/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 export ZSH_HIGHLIGHT_HIGHLIGHTERS_DIR=$RZR_PREFIX/share/zsh-syntax-highlighting/highlighters
-[[ -d "$RZR_PREFIX/share/zsh-completions" ]] && fpath=("$RZR_PREFIX/share/zsh-completions" $fpath)
 
 # Taken from https://github.com/bkzl/dotfiles/blob/master/zshrc
 fancy-ctrl-z () {
@@ -97,11 +97,12 @@ _cache_tool_init() {
 
 _cache_tool_init direnv   direnv hook zsh
 _cache_tool_init zoxide   zoxide init zsh
-_cache_tool_init atuin    atuin init zsh --disable-up-arrow
 _cache_tool_init starship starship init zsh
 # fzf's zle widgets warn in a ttyless interactive shell (e.g. `zsh -ic` in
 # scripts) where zle can't run, so load it only with a real terminal (stderr).
 [[ -t 2 ]] && _cache_tool_init fzf fzf --zsh
+# Atuin owns Ctrl-R, including when fzf installs its own history widget.
+_cache_tool_init atuin    atuin init zsh --disable-up-arrow
 
 unfunction _cache_tool_init
 
