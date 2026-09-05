@@ -35,3 +35,8 @@ def xzarchive():
 @pytest.fixture(scope="session")
 def dbdump():
     return load("dbdump")
+
+
+@pytest.fixture(scope="session")
+def dotcheck():
+    return load("dotcheck")

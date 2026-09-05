@@ -1,0 +1,384 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["rzr"]
+# [tool.uv.sources]
+# rzr = { path = "../lib/rzr", editable = true }
+# ///
+"""Check tracked dotfiles without loading private configuration."""
+
+import fnmatch
+import os
+import platform
+import posixpath
+import pty
+import re
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+
+from rich.markup import escape
+from rzr import cli, die, fail, main, ok, run, status
+
+ROOT = Path(__file__).resolve().parents[2]
+DEPENDENCIES = {
+    "nvim": ("neovim", "neovim"),
+    "fzf": ("fzf", "fzf"),
+    "atuin": ("atuin", "atuin"),
+    "direnv": ("direnv", "direnv"),
+    "zoxide": ("zoxide", "zoxide"),
+    "starship": ("starship", "starship"),
+    "delta": ("git-delta", "git-delta"),
+    "git-lfs": ("git-lfs", "git-lfs"),
+    "uv": ("uv", "uv"),
+    "shellcheck": ("shellcheck", "ShellCheck"),
+    "zstd": ("zstd", "zstd"),
+}
+TOOL_COMMANDS = ("mongodump", "pg_dumpall", "magick", "tesseract", "gs", "pdftoppm", "scanimage")
+STARTUP_FILES = (
+    ".zshenv",
+    ".profile",
+    ".bash_profile",
+    ".bashrc",
+    ".config/bash/fastprompt.sh",
+    ".config/zsh/.zshenv",
+    ".config/zsh/.zprofile",
+    ".config/zsh/.zshrc",
+    ".config/shell/paths.sh",
+    ".config/shell/common.sh",
+    ".config/shell/darwin.sh",
+    ".config/shell/linux.sh",
+    ".config/shell/interactive.sh",
+)
+STARTUP_ERRORS = {
+    21: "mise shims must precede ~/.local/bin",
+    22: "LDFLAGS changed or duplicated",
+    23: "CPPFLAGS changed or duplicated",
+    24: "PKG_CONFIG_PATH changed or duplicated",
+    25: "fzf integration did not load",
+    26: "Atuin does not own Ctrl-R",
+    27: "additional completions did not load before compinit",
+}
+
+
+def is_dotfile(name):
+    return name in {
+        ".gitignore",
+        ".zshenv",
+        ".profile",
+        ".bashrc",
+        ".bash_profile",
+    } or name.startswith(
+        (".config/", ".local/bin/", ".local/lib/rzr/", ".local/tests/", ".codex/", ".claude/")
+    )
+
+
+def inventory(root):
+    command = [str(root / ".local/bin/yadm")] if root == Path.home() else ["git"]
+    names = run([*command, "ls-files", "-z"], cwd=root).stdout.split("\0")
+    return sorted({name for name in names if name and is_dotfile(name)})
+
+
+def read_sources(root, names):
+    sources, problems = {}, []
+    for name in names:
+        if name == ".local/bin/yadm":
+            continue
+        path = root / name
+        if path.is_symlink():
+            target = posixpath.normpath(posixpath.join(posixpath.dirname(name), os.readlink(path)))
+            if target not in names:
+                problems.append(f"{name}: symlink target is not tracked: {target}")
+            continue
+        try:
+            sources[name] = path.read_text()
+        except (OSError, UnicodeError) as error:
+            problems.append(f"{name}: {error}")
+    return sources, problems
+
+
+def shell_for(name, text):
+    if (
+        name == ".zshenv"
+        or name.startswith(".config/zsh/")
+        or text.startswith("#!/usr/bin/env zsh")
+    ):
+        return "zsh"
+    if (
+        name in {".profile", ".bashrc", ".bash_profile"}
+        or name.startswith((".config/shell/", ".config/bash/"))
+        or text.startswith(("#!/usr/bin/env bash", "#!/bin/bash"))
+    ):
+        return "bash"
+    return None
+
+
+def diagnostics(command, **kwargs):
+    result = subprocess.run(command, capture_output=True, text=True, **kwargs)
+    return (
+        [
+            result.stdout.strip()
+            or result.stderr.strip()
+            or f"{command[0]} exited with {result.returncode}"
+        ]
+        if result.returncode
+        else []
+    )
+
+
+def check_shells(root, sources):
+    problems, bash_files = [], []
+    for name, text in sources.items():
+        shell = shell_for(name, text)
+        if shell:
+            if not shutil.which(shell):
+                problems.append(f"{name}: install {shell} to check syntax")
+                continue
+            problems.extend(
+                diagnostics(
+                    [shell, "-f", "-n", str(root / name)],
+                    env={"PATH": os.defpath, "HOME": "/nonexistent", "ZDOTDIR": "/nonexistent"},
+                )
+            )
+            if shell == "bash":
+                bash_files.append(str(root / name))
+    if not shutil.which("shellcheck"):
+        problems.append("install shellcheck to check Bash diagnostics")
+    elif bash_files:
+        problems.extend(
+            diagnostics(
+                [
+                    "shellcheck",
+                    "--shell=bash",
+                    "--severity=warning",
+                    "--format=gcc",
+                    "--exclude=SC1090,SC1091",
+                    *bash_files,
+                ]
+            )
+        )
+    return problems
+
+
+def check_references(sources, names):
+    problems = []
+    patterns = {
+        ".config/ghostty/": r"^\s*(?:config-file|gtk-custom-css)\s*=\s*(\S+)",
+        ".config/kitty/": r"^\s*(?:include|globinclude)\s+(\S+)",
+    }
+    plain_names = {name.split("##", 1)[0] for name in names}
+    for name, text in sources.items():
+        for prefix, pattern in patterns.items():
+            if not name.startswith(prefix):
+                continue
+            for reference in re.findall(pattern, text, re.MULTILINE):
+                reference = reference.strip('"').removeprefix("?")
+                target = posixpath.normpath(posixpath.join(posixpath.dirname(name), reference))
+                if not any(fnmatch.fnmatchcase(candidate, target) for candidate in plain_names):
+                    problems.append(
+                        f"{name}: include has no tracked file or alternate: {reference}"
+                    )
+        if (
+            name.startswith(".local/bin/")
+            and 'path = "../lib/rzr"' in text
+            and ".local/lib/rzr/pyproject.toml" not in names
+        ):
+            problems.append(f"{name}: local rzr dependency is not tracked")
+    return problems
+
+
+def check_alternates(root, names, system):
+    problems = []
+    for name in names:
+        if "##os." not in name:
+            continue
+        plain, target_os = name.split("##os.", 1)
+        path = root / plain
+        if target_os == system:
+            if not path.is_symlink() or os.readlink(path) != Path(name).name:
+                problems.append(f"{plain}: expected symlink to {Path(name).name}; run yadm alt")
+        elif path.is_symlink() or path.exists():
+            problems.append(f"{plain}: {target_os}-only alternate is present on {system}")
+    return problems
+
+
+def check_dependencies(sources, installed):
+    problems = []
+    brew = set(
+        re.findall(r'^brew "([^"]+)"', sources.get(".config/razorjack/Brewfile", ""), re.MULTILINE)
+    )
+    linux = set(
+        re.findall(
+            r"[\w+-]+",
+            "\n".join(
+                line.split("#", 1)[0]
+                for line in sources.get(".config/razorjack/setup_linux", "").splitlines()
+            ),
+        )
+    )
+    for command, (formula, package) in DEPENDENCIES.items():
+        if formula not in brew:
+            problems.append(f"{command}: Brewfile is missing {formula}")
+        if package not in linux:
+            problems.append(f"{command}: setup_linux is missing {package}")
+    if installed:
+        for command in (*DEPENDENCIES, *TOOL_COMMANDS):
+            if not shutil.which(command):
+                problems.append(f"{command}: not installed or not on PATH")
+    return problems
+
+
+def executable(path, body):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("#!/bin/sh\n" + body)
+    path.chmod(0o755)
+
+
+def check_startup(sources):
+    missing = set(STARTUP_FILES) - sources.keys()
+    if missing:
+        return [f"startup check needs tracked {name}" for name in sorted(missing)]
+    if not shutil.which("bash") or not shutil.which("zsh"):
+        return ["startup check requires Bash and Zsh"]
+    with tempfile.TemporaryDirectory(prefix="dotcheck-") as tmp:
+        home = Path(tmp)
+        brew = home / "brew"
+        for name in STARTUP_FILES:
+            path = home / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(sources[name].replace("/opt/homebrew", str(brew)))
+        for directory in (
+            ".local/bin",
+            ".local/share/mise/shims",
+            ".yarn/bin",
+            "brew/opt/postgresql@16/bin",
+            "brew/share/zsh-completions",
+        ):
+            (home / directory).mkdir(parents=True, exist_ok=True)
+        executable(
+            brew / "bin/brew",
+            'printf \'export HOMEBREW_PREFIX="%s"\\nexport PATH="%s/bin:$PATH"\\n\' '
+            '"$DOTCHECK_BREW" "$DOTCHECK_BREW"\n',
+        )
+        for tool in ("direnv", "zoxide", "starship"):
+            executable(home / ".local/bin" / tool, "echo :\n")
+        for tool, widget in (("fzf", "fzf-history-widget"), ("atuin", "atuin-search")):
+            executable(
+                home / ".local/bin" / tool,
+                f"cat <<'INIT'\n{widget}() {{ :; }}\nzle -N {widget}\n"
+                f"bindkey -M viins '^R' {widget}\nINIT\n",
+            )
+        (brew / "share/zsh-completions/_dotcheck_probe").write_text("#compdef dotcheck-probe\n")
+        env = {
+            "HOME": tmp,
+            "ZDOTDIR": str(home / ".config/zsh"),
+            "PATH": os.defpath,
+            "TERM": "xterm-256color",
+            "DOTCHECK_BREW": str(brew),
+            "LDFLAGS": "-L/project/lib",
+            "CPPFLAGS": "-I/project/include",
+            "PKG_CONFIG_PATH": "/project/pkgconfig",
+        }
+        checks = """
+[[ "$PATH" == "$HOME/.local/share/mise/shims:$HOME/.local/bin:"* ]] || exit 21
+[[ "$LDFLAGS" == "-L/project/lib -L$DOTCHECK_BREW/opt/postgresql@16/lib" ]] || exit 22
+[[ "$CPPFLAGS" == "-I/project/include -I$DOTCHECK_BREW/opt/postgresql@16/include" ]] || exit 23
+expected_pkgconfig="/project/pkgconfig:$DOTCHECK_BREW/opt/postgresql@16/lib/pkgconfig"
+[[ "$PKG_CONFIG_PATH" == "$expected_pkgconfig" ]] || exit 24
+"""
+        bash = subprocess.run(
+            [
+                "bash",
+                "--noprofile",
+                "--norc",
+                "-c",
+                'source "$HOME/.bash_profile"; source "$HOME/.config/shell/paths.sh";\n' + checks,
+            ],
+            env=env,
+            cwd=home,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        master, slave = pty.openpty()
+        try:
+            # stderr must be a TTY for .zshrc to load fzf's widgets.
+            result = subprocess.run(
+                [
+                    "zsh",
+                    "-f",
+                    "-i",
+                    "-c",
+                    """
+source "$HOME/.zshenv"
+export RZR_PREFIX="$DOTCHECK_BREW"
+source "$ZDOTDIR/.zprofile"
+source "$ZDOTDIR/.zshrc"
+[[ -n "${widgets[fzf-history-widget]}" ]] || exit 25
+[[ "$(bindkey -M viins '^R')" == *atuin-search* ]] || exit 26
+[[ "${_comps[dotcheck-probe]}" == _dotcheck_probe ]] || exit 27
+"""
+                    + checks,
+                ],
+                env=env,
+                cwd=home,
+                stdout=subprocess.PIPE,
+                stderr=slave,
+                text=True,
+                timeout=20,
+            )
+        finally:
+            os.close(slave)
+            os.close(master)
+    return [
+        f"{shell}: {STARTUP_ERRORS.get(code, f'startup check exited with {code}')}"
+        for shell, code in (("Bash", bash.returncode), ("Zsh", result.returncode))
+        if code
+    ]
+
+
+def report(label, problems):
+    if not problems:
+        ok(label)
+    for problem in problems:
+        fail(f"{label}: {escape(problem)}")
+    return len(problems)
+
+
+@main
+def dotcheck():
+    parser = cli(
+        "dotcheck",
+        "Check tracked dotfiles without loading private configuration.",
+        "Examples:\n  dotcheck\n  dotcheck --repo-only\n\n"
+        "Checks shell syntax, ShellCheck warnings, terminal includes, dependencies,\n"
+        "YADM alternates, and startup behavior in a temporary home. Never walks\n"
+        "the home directory or sources machine-local overrides. Exit 1 means a\n"
+        "check failed. Vendored yadm is excluded from source checks.",
+    )
+    parser.add_argument(
+        "--repo-only",
+        action="store_true",
+        help="skip installed tools and generated alternate links",
+    )
+    args = parser.parse_args()
+    try:
+        names = inventory(ROOT)
+        sources, problems = read_sources(ROOT, names)
+        failures = report("Tracked files", problems)
+        failures += report("Shell syntax and ShellCheck", check_shells(ROOT, sources))
+        failures += report("Tracked includes", check_references(sources, names))
+        failures += report("Dependencies", check_dependencies(sources, not args.repo_only))
+        if not args.repo_only and Path.home() == ROOT:
+            failures += report("YADM alternates", check_alternates(ROOT, names, platform.system()))
+        with status("Checking isolated shell startup"):
+            problems = check_startup(sources)
+        failures += report("Shell startup", problems)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        die(escape(str(error)))
+    raise SystemExit(1 if failures else 0)
+
+
+if __name__ == "__main__":
+    dotcheck()
