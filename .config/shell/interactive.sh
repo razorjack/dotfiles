@@ -119,14 +119,14 @@ case "$OSTYPE" in
       # DB backups are performed with dbdump
       sudo tmutil addexclusion -p /opt/homebrew/var
       # Everything web browser related is considered transient and unworthy of backup
-      sudo tmutil addexclusion -p "~/Library/Application Support/Google/Chrome Canary"
-      sudo tmutil addexclusion -p "~/Library/Application Support/Google/Chrome"
-      sudo tmutil addexclusion -p "~/Library/Application Support/BraveSoftware/Brave-Browser-Beta"
+      sudo tmutil addexclusion -p "$HOME/Library/Application Support/Google/Chrome Canary"
+      sudo tmutil addexclusion -p "$HOME/Library/Application Support/Google/Chrome"
+      sudo tmutil addexclusion -p "$HOME/Library/Application Support/BraveSoftware/Brave-Browser-Beta"
 
-      sudo tmutil addexclusion -p "~/Library/Application Support/Telegram Desktop"
-      sudo tmutil addexclusion -p "~/Library/Application Support/Spotify/PersistentCache"
-      sudo tmutil addexclusion -p "~/Library/Application Support/Dropbox"
-      sudo tmutil addexclusion -p "~/Library/Application Support/BraveSoftware"
+      sudo tmutil addexclusion -p "$HOME/Library/Application Support/Telegram Desktop"
+      sudo tmutil addexclusion -p "$HOME/Library/Application Support/Spotify/PersistentCache"
+      sudo tmutil addexclusion -p "$HOME/Library/Application Support/Dropbox"
+      sudo tmutil addexclusion -p "$HOME/Library/Application Support/BraveSoftware"
       # sudo tmutil addexclusion -p
 
       # Exclude logs

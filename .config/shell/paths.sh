@@ -23,9 +23,18 @@ fi
 # pg gem (agents build gems without an interactive shell).
 if [ -d /opt/homebrew/opt/postgresql@16 ]; then
   export PATH="/opt/homebrew/opt/postgresql@16/bin:$PATH"
-  export LDFLAGS="-L/opt/homebrew/opt/postgresql@16/lib"
-  export CPPFLAGS="-I/opt/homebrew/opt/postgresql@16/include"
-  export PKG_CONFIG_PATH="/opt/homebrew/opt/postgresql@16/lib/pkgconfig"
+  case " ${LDFLAGS:-} " in
+    *" -L/opt/homebrew/opt/postgresql@16/lib "*) ;;
+    *) export LDFLAGS="${LDFLAGS:+$LDFLAGS }-L/opt/homebrew/opt/postgresql@16/lib" ;;
+  esac
+  case " ${CPPFLAGS:-} " in
+    *" -I/opt/homebrew/opt/postgresql@16/include "*) ;;
+    *) export CPPFLAGS="${CPPFLAGS:+$CPPFLAGS }-I/opt/homebrew/opt/postgresql@16/include" ;;
+  esac
+  case ":${PKG_CONFIG_PATH:-}:" in
+    *:/opt/homebrew/opt/postgresql@16/lib/pkgconfig:*) ;;
+    *) export PKG_CONFIG_PATH="${PKG_CONFIG_PATH:+$PKG_CONFIG_PATH:}/opt/homebrew/opt/postgresql@16/lib/pkgconfig" ;;
+  esac
 fi
 
 [ -d "$HOME/.yarn/bin" ] && export PATH="$HOME/.yarn/bin:$PATH"
