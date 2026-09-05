@@ -22,15 +22,16 @@ source "$HOME/.config/shell/interactive.sh"
 
 autoload -Uz compinit
 zstyle ':completion:*' menu select
-# Rebuild the dump if it is missing or older than 24h, else take the -C fast
-# path. ZDOTDIR is set, so the real dump lives at $ZDOTDIR/.zcompdump. The glob
+# Rebuild the dump if it is missing, older than 24h, or predates this config.
+# Otherwise take the -C fast path. The dump lives at $ZDOTDIR/.zcompdump. The glob
 # qualifier (N.mh-24) only matches a regular file modified in the last 24h;
 # filename generation must happen in this array assignment, not inside [[ ]].
 _zdump=(${ZDOTDIR:-$HOME}/.zcompdump(N.mh-24))
-if (( $#_zdump )); then
+if (( $#_zdump )) && [[ "${ZDOTDIR:-$HOME}/.zshrc" -ot "${_zdump[1]}" ]]; then
   compinit -C
 else
   compinit
+  compdump
 fi
 unset _zdump
 
