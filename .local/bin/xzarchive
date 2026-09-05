@@ -1,0 +1,65 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["rzr"]
+# [tool.uv.sources]
+# rzr = { path = "../lib/rzr", editable = true }
+# ///
+"""Archive a project without changing its files."""
+
+import lzma
+import os
+import tarfile
+import tempfile
+from pathlib import Path, PurePosixPath
+
+from rich.markup import escape
+from rzr import cli, die, main, ok, status
+
+EXCLUDED = ("tmp/cache", "node_modules", "public/uploads", "public/system")
+
+
+def archive_entry(entry):
+    path = PurePosixPath(*PurePosixPath(entry.name).parts[1:])
+    if any(path == PurePosixPath(name) or PurePosixPath(name) in path.parents for name in EXCLUDED):
+        return None
+    if path.parent == PurePosixPath("log") and path.suffix == ".log":
+        return None
+    return entry
+
+
+def archive(source):
+    source = source.resolve(strict=True)
+    if not source.is_dir() or source == source.parent:
+        raise ValueError("choose a project directory, not a file or filesystem root")
+    dest = source.with_name(source.name + ".tar.xz")
+    with tempfile.TemporaryDirectory(prefix=".xzarchive-", dir=source.parent) as tmp:
+        fresh = Path(tmp) / "archive.tar.xz"
+        with tarfile.open(fresh, "w:xz", preset=9 | lzma.PRESET_EXTREME) as output:
+            output.add(source, arcname=source.name, filter=archive_entry)
+        os.replace(fresh, dest)
+    return dest
+
+
+@main
+def xzarchive():
+    parser = cli(
+        "xzarchive",
+        "Archive a project without changing its files.",
+        "Example: xzarchive ~/Projects/app\n\n"
+        "Writes app.tar.xz beside the directory. Excludes log/*.log, tmp/cache,\n"
+        "node_modules, public/uploads, and public/system. Replaces an existing\n"
+        "archive only after compression succeeds.",
+    )
+    parser.add_argument("directory", type=Path)
+    args = parser.parse_args()
+    try:
+        with status("Archiving project"):
+            dest = archive(args.directory)
+    except (OSError, ValueError, tarfile.TarError, lzma.LZMAError) as error:
+        die(escape(str(error)))
+    ok(f"Saved [path]{escape(str(dest))}[/]")
+
+
+if __name__ == "__main__":
+    xzarchive()

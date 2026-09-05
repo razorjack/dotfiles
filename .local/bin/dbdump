@@ -1,0 +1,115 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["rzr"]
+# [tool.uv.sources]
+# rzr = { path = "../lib/rzr", editable = true }
+# ///
+"""Save compressed MongoDB and PostgreSQL dumps."""
+
+import datetime
+import os
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+
+from rich.markup import escape
+from rzr import cli, die, main, ok, status
+
+DUMPS = {
+    "mongo": ["mongodump", "--archive", "--quiet"],
+    "postgres": ["pg_dumpall"],
+}
+
+
+def dump(command, dest):
+    processes = []
+    compress = ["zstd", "-q", "-14", "-T8", "--long=31"]
+    with (
+        dest.open("wb") as output,
+        tempfile.TemporaryFile() as dump_errors,
+        tempfile.TemporaryFile() as compress_errors,
+    ):
+        try:
+            producer = subprocess.Popen(
+                command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=dump_errors
+            )
+            processes.append(producer)
+            consumer = subprocess.Popen(
+                compress, stdin=producer.stdout, stdout=output, stderr=compress_errors
+            )
+            processes.append(consumer)
+            producer.stdout.close()
+            consumer.wait()
+            if consumer.returncode and producer.poll() is None:
+                producer.kill()
+            producer.wait()
+            for process, errors, name in (
+                (consumer, compress_errors, "zstd"),
+                (producer, dump_errors, command[0]),
+            ):
+                if process.returncode:
+                    errors.seek(0)
+                    detail = errors.read().decode(errors="replace").strip()
+                    raise RuntimeError(f"{name} exited with {process.returncode}: {detail}")
+        finally:
+            for process in processes:
+                if process.poll() is None:
+                    process.kill()
+                process.wait()
+                if process.stdout:
+                    process.stdout.close()
+
+
+def backup(directory, now=None):
+    now = now or datetime.datetime.now(datetime.UTC)
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with tempfile.TemporaryDirectory(prefix=".dbdump-", dir=directory) as tmp:
+        work = Path(tmp)
+        pending = []
+        for name, command in DUMPS.items():
+            fresh = work / f"{name}.zst"
+            with status(f"Dumping {name}"):
+                dump(command, fresh)
+            for stamp in (now.strftime("%Y-W%W"), now.strftime("%w")):
+                filename = f"{name}-{stamp}.zst"
+                staged = work / filename
+                shutil.copyfile(fresh, staged)
+                staged.chmod(0o600)
+                pending.append((staged, directory / filename))
+        # Neither database's previous backups change unless both dumps succeed.
+        for staged, dest in pending:
+            os.replace(staged, dest)
+    return [dest for _, dest in pending]
+
+
+@main
+def dbdump():
+    parser = cli(
+        "dbdump",
+        "Save compressed MongoDB and PostgreSQL dumps.",
+        "Example: dbdump\n\n"
+        "Keeps the existing weekly and weekday filenames. Replaces backups only\n"
+        "after both dumps and compression succeed. Uses each client's normal\n"
+        "connection settings; no databases are modified.",
+    )
+    parser.add_argument(
+        "--directory",
+        type=Path,
+        default=Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "dbbackups",
+        help="backup directory (default: XDG data directory/dbbackups)",
+    )
+    args = parser.parse_args()
+    missing = [name for name in ("mongodump", "pg_dumpall", "zstd") if not shutil.which(name)]
+    if missing:
+        die("missing tools: " + ", ".join(missing))
+    try:
+        files = backup(args.directory)
+    except (OSError, RuntimeError) as error:
+        die(escape(str(error)))
+    ok(f"Saved [num]{len(files)}[/] backups in [path]{escape(str(args.directory))}[/]")
+
+
+if __name__ == "__main__":
+    dbdump()

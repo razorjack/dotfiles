@@ -25,3 +25,13 @@ def narrate():
 @pytest.fixture(scope="session")
 def scan2pdf():
     return load("scan2pdf")
+
+
+@pytest.fixture(scope="session")
+def xzarchive():
+    return load("xzarchive")
+
+
+@pytest.fixture(scope="session")
+def dbdump():
+    return load("dbdump")

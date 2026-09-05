@@ -45,29 +45,6 @@ yt() {
     fabric -y "$video_link" --transcript
 }
 
-xzarchive() {
-  d=${1%/}
-
-  if [ -d "$d/log/" ]; then
-    for f in "$d"/log/*.log; do [ -e "$f" ] && : > "$f"; done
-  fi
-
-  [ -d "$d/tmp/cache" ] && rm -rf "$d/tmp/cache"
-  [ -d "$d/node_modules" ] && rm -rf "$d/node_modules"
-  [ -d "$d/public/uploads" ] && rm -rf "$d/public/uploads"
-  [ -d "$d/public/system" ] && rm -rf "$d/public/system"
-
-  # tar -cf - "$d" | xz -T0 -9e --lzma2=dict=1Gi > "$d.tar.xz"
-  tar -c "$d" | xz -T0 -9e --lzma2=dict=1Gi --verbose > "$d.tar.xz"
-}
-
-dbdump() {
-  local backup_dir="${XDG_DATA_HOME:-$HOME/.local/share}/dbbackups"
-  mkdir -p "$backup_dir"
-  mongodump --archive --quiet | zstd -14 -T8 --long=31 | tee "$backup_dir/mongo-$(date -u +%Y-W%W).zst" "$backup_dir/mongo-$(date -u +%w).zst" > /dev/null
-  pg_dumpall | zstd -14 -T8 --long=31 | tee "$backup_dir/postgres-$(date -u +%Y-W%W).zst" "$backup_dir/postgres-$(date -u +%w).zst" > /dev/null
-}
-
 dirarchive() {
   local dir="${1%/}"  # strip trailing slash
   if [[ -z "$dir" ]]; then
