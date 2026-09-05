@@ -45,7 +45,8 @@ yt() {
     fabric -y "$video_link" --transcript
 }
 
-dirarchive() {
+dirarchive() (
+  set -o pipefail
   local dir="${1%/}"  # strip trailing slash
   if [[ -z "$dir" ]]; then
     echo "Usage: dirarchive <directory>" >&2
@@ -60,9 +61,10 @@ dirarchive() {
   base="$(basename -- "$dir")"
   outfile="${base}.tar.zst"
   tar -cf - -C "$parent" "$base" | zstd -14 -T8 --long=31 -o "$outfile"
-}
+)
 
-dirunarchive() {
+dirunarchive() (
+  set -o pipefail
   local file="${1%}"  # as‐given name
   if [[ -z "$file" ]]; then
     echo "Usage: dirunarchive <archive> (with or without .tar.zst)" >&2
@@ -80,7 +82,7 @@ dirunarchive() {
   fi
 
   zstd -d --long=31 --progress -c "$archive" | tar -xf -
-}
+)
 
 case "$OSTYPE" in
   darwin*)
