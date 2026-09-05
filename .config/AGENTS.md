@@ -110,7 +110,7 @@ Mise manages **all** language runtimes (Ruby, Node, ...). Never add a brew-insta
 ## Own Tools (`~/.local/bin`)
 
 - **Python first.** A tool is a single file starting with `#!/usr/bin/env -S uv run --script` and a PEP 723 block (`# /// script ... # ///`) that declares `requires-python` and `dependencies`. uv resolves and caches on first run, and manages its own interpreter – tools never depend on mise's Python or on a project's `.mise.toml`. Reference: `narrate`, `scan2pdf`.
-- **Bash** only for short glue with no library needs and trivial arguments (`za` is the shape). Once a tool needs real argument parsing, temp files, JSON, or any library, it is Python.
+- **Bash** only for short glue with no library needs and trivial arguments. Once a tool needs real argument parsing, temp files, JSON, or any library, it is Python.
 - **Native binaries** (tesseract, ghostscript, sane, ...) cannot come through uv: add them to both `~/.config/razorjack/Brewfile` and `setup_linux` (Fedora repos, else COPR – never brew on Linux).
 - **Shared look: `~/.local/lib/rzr`** (rich + rich-argparse, OneDark theme). Every Python tool depends on it:
   ```

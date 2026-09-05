@@ -75,7 +75,7 @@ setup_repos() {
     https://dl.flathub.org/repo/flathub.flatpakrepo
 
   msg "COPRs (tools not in Fedora repos)"
-  for copr in scottames/ghostty varlad/zellij atim/lazygit atim/starship alternateved/keyd hazel-bunny/ports; do
+  for copr in scottames/ghostty atim/lazygit atim/starship alternateved/keyd hazel-bunny/ports; do
     sudo dnf copr enable -y "$copr"
   done
 
@@ -115,7 +115,7 @@ setup_packages() {
     git git-lfs \
     zsh zsh-syntax-highlighting \
     ripgrep fd-find fzf bat eza zoxide atuin git-delta \
-    neovim tmux zellij direnv jq yamllint tig tealdeer ShellCheck \
+    neovim tmux direnv jq yamllint tig tealdeer ShellCheck \
     ctags starship lazygit \
     the_silver_searcher ack \
     ImageMagick ffmpegthumbs yt-dlp mpv nmap rsync zstd \
