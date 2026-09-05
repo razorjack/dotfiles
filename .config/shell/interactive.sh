@@ -36,7 +36,7 @@ rake()  { if [ -x bin/rake ];  then bin/rake  "$@"; else command rake  "$@"; fi;
 # never launch nvim with no argument.
 dot() {
   local file
-  file="$(cd && git ls-files | fzf)" || return
+  file="$(cd && yadm ls-files | fzf)" || return
   [ -n "$file" ] && (cd && nvim "$file")
 }
 
