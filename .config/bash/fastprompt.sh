@@ -77,7 +77,8 @@ _mk_prompt() {
   fi
 
   local prefix=()
-  local jobcount="$(jobs -p | wc -l)"
+  local jobcount
+  jobcount="$(jobs -p | wc -l)"
   if [[ "$jobcount" -gt 0 ]]; then
     local job="${jobcount##* } job"
     [[ "$jobcount" -gt 1 ]] && job="${job}s"
@@ -95,8 +96,8 @@ _mk_prompt() {
   fi
 
   PS1="$_MK_PROMPT_ORIG_PS1"
-  if [[ ! -z "$prefix" ]]; then
-    PS1="[${prefix[@]}] $PS1"
+  if [[ ${#prefix[@]} -gt 0 ]]; then
+    PS1="[${prefix[*]}] $PS1"
   fi
 
   export PS1
