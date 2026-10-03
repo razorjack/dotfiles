@@ -4,7 +4,7 @@
 #             on Fedora/KDE via yabridge and the giang17-patched Wine.
 #
 # Written for: Fedora 44+, KDE, x86_64. Bitwig / REAPER / Renoise as hosts.
-# Covers: Serum 2, FabFilter, Kilohearts (Phase Plant), Arturia (Pigments),
+# Covers: FabFilter, Kilohearts (Phase Plant), Arturia (Pigments),
 #         Minimal Audio (Rift, Morph EQ), XLN Audio (XO),
 #         Native Instruments (Komplete), Neural DSP, Bogren Digital.
 #
@@ -23,7 +23,6 @@
 #   vstbridge fix-fonts [vendor]       re-apply FontLink registry fixes (all prefixes
 #                                      if no vendor given). Needed after any wineboot!
 #   vstbridge ni-postinstall           install the NTK daemon after Native Access setup
-#   vstbridge serum-fonts              generate the BitPDisp-10 tooltip font for Serum 2
 #   vstbridge doctor                   sanity checks (wine version, DXVK, esync, DAWs...)
 #   vstbridge vendors                  list vendors, prefixes and per-vendor notes
 #   vstbridge paths                    print the plugin paths to configure in your DAWs
@@ -31,8 +30,7 @@
 # TYPICAL FLOW ON A FRESH FEDORA INSTALL
 #   1) ./vstbridge setup
 #   2) download vendor installers on the Linux side
-#   3) ./vstbridge install serum ~/Downloads/Install_Xfer_Serum2_*.exe
-#      ./vstbridge install fabfilter ~/Downloads/proq4.exe          (etc.)
+#   3) ./vstbridge install fabfilter ~/Downloads/proq4.exe          (etc.)
 #      ./vstbridge run arturia ~/Downloads/Arturia_Software_Center*.exe
 #      ./vstbridge run ni ~/Downloads/native-access-1.14.1.exe && ./vstbridge ni-postinstall
 #   4) ./vstbridge sync && ./vstbridge doctor
@@ -45,8 +43,8 @@
 #      instead of Fedora's own wine + a yabridge release.
 #      WHY: (a) yabridge's last release (5.1.1, 2024) does not work with Wine
 #      9.22+/10.x/11.x; the fixes (new-wine10-embedding + "call VST3 functions
-#      from the UI thread", needed by Serum 2) are only on yabridge master.
-#      (b) Vanilla Wine cannot render Serum 2 / modern VSTGUI / JUCE 8 UIs;
+#      from the UI thread") are only on yabridge master.
+#      (b) Vanilla Wine cannot render modern VSTGUI / JUCE 8 UIs;
 #      the D2D1+DirectComposition+DWrite patches live in
 #      https://github.com/giang17/wine (d2d1-dcomp-11.x branches), packaged in
 #      that COPR. See robbert-vdh/yabridge#413 for the whole saga.
@@ -71,7 +69,7 @@
 #
 # [W3] FontLink registry entries are re-applied after every installer run.
 #      WHY: `wineboot -u` (which installers can trigger) resets the Tahoma
-#      FontLink and Serum 2's stars/arrows become tofu boxes again. Documented
+#      FontLink and symbol glyphs become tofu boxes again. Documented
 #      in giang17's wine-font-setup-guide.md.
 #      REMOVE WHEN: upstream Wine preserves/auto-creates FontLink entries, or
 #      the fork stops needing them (check the guide in the giang17 repo).
@@ -92,13 +90,6 @@
 #      `vstbridge run ni ...`.
 #      REMOVE WHEN: NI ships a Native Access that runs under Wine, or the
 #      Kontakt 8 installer starts working (watch the yabridge Discord/README).
-#
-# [W6] Serum 2 BitPDisp-10 tooltip font is faked from DejaVu Sans Mono
-#      (fontTools rename), because the font only ships with the Windows
-#      installer's extras and DWrite otherwise falls back to ugly Tahoma.
-#      REMOVE WHEN: the Serum 2 installer run under Wine drops the real
-#      BitPDisp-10 into the skin Fonts folder (check
-#      "<serum prefix>/drive_c/users/$USER/Documents/Xfer/Serum 2 Presets/Skins/Default/Fonts").
 #
 # [W7] Kilohearts: esync must stay OFF (fd leaks eventually wedge Wine+yabridge).
 #      Fedora wine does not enable esync unless WINEESYNC=1 is exported - so
@@ -137,8 +128,6 @@
 #      new prefixes to Windows 10, we still set it explicitly.
 # [A6] You use the VST3 (and CLAP where offered) builds of plugins. VST2 dirs
 #      are still created and registered for the stragglers.
-# [A7] Serum 2 >= 2.1.2 (older builds have their own leaks/crashes that were
-#      fixed plugin-side during the yabridge#413 investigation).
 # ---------------------------------------------------------------------------
 
 set -euo pipefail
@@ -151,11 +140,10 @@ PREFIX_ROOT="$VSTBRIDGE_HOME/prefixes"
 
 # Vendors. One wineprefix per vendor: cheap, and a broken experiment (looking
 # at you, Native Access) can never take down the rest.
-VENDORS=(serum fabfilter kilohearts arturia minimalaudio xln ni neuraldsp bogren)
+VENDORS=(fabfilter kilohearts arturia minimalaudio xln ni neuraldsp bogren)
 
 vendor_note() {
     case "$1" in
-        serum)        echo "Xfer Serum 2. Needs the patched wine + font setup; defaults in Serum2Prefs.json are fine with it. Run 'vstbridge serum-fonts' after installing." ;;
         fabfilter)    echo "FabFilter (Pro-Q etc). Works essentially perfectly. VST2-only niceties (inter-instance stuff) need plugin groups - see the yabridge.toml template; the VST3s don't care." ;;
         kilohearts)   echo "Kilohearts / Phase Plant. Works well. Keep esync OFF [W7]." ;;
         arturia)      echo "Arturia Pigments. Install via Arturia Software Center ('vstbridge run arturia ASC.exe'). Known JUCE tooltip-freeze reports on vanilla wine; patched wine should behave better." ;;
@@ -206,14 +194,13 @@ setup_packages() {
     sudo dnf -y copr enable "$COPR_PROJECT" \
         || die "COPR enable failed - project may have been renamed after a wine rebase, see [W1] in this script"
     # cabextract: needed by winetricks corefonts [W4]
-    # python3-fonttools: for the Serum BitPDisp-10 substitute [W6]
     sudo dnf -y install wine yabridge winetricks cabextract \
-        dejavu-sans-fonts dejavu-sans-mono-fonts python3-fonttools
+        dejavu-sans-fonts
     # Noto Sans Symbols 2: exact Fedora pkg name has varied; try candidates,
     # then verify via fontconfig [A4].
     sudo dnf -y install google-noto-sans-symbols2-fonts 2>/dev/null \
         || sudo dnf -y install 'google-noto-sans-symbols*' 2>/dev/null \
-        || warn "could not install a Noto Sans Symbols 2 package - install it manually, Serum's stars/arrows need it"
+        || warn "could not install a Noto Sans Symbols 2 package - install it manually, symbol glyphs need it"
     [[ -n "$(find_font NotoSansSymbols2-Regular.ttf)" ]] \
         || warn "NotoSansSymbols2-Regular.ttf not found via fontconfig"
 
@@ -434,44 +421,6 @@ cmd_ni_postinstall() {
     log "[ni] done - now 'vstbridge run ni \"$px/drive_c/Program Files/Native Instruments/Native Access/Native Access.exe\"'"
 }
 
-# [W6] Fake BitPDisp-10 for Serum 2 tooltips (else: aliased Tahoma fallback).
-cmd_serum_fonts() {
-    local px; px="$(prefix_of serum)"
-    local skin="$px/drive_c/users/$USER/Documents/Xfer/Serum 2 Presets/Skins/Default/Fonts"
-    # If a BitPDisp-10.ttf already exists in the skin (the Windows installer
-    # may ship the real font - see [W6] REMOVE WHEN), never overwrite it;
-    # just expose whatever is there to DWrite via fontconfig.
-    if [[ -f "$skin/BitPDisp-10.ttf" ]]; then
-        log "BitPDisp-10.ttf already present in the Serum skin - not overwriting [W6]"
-        cp -f "$skin/BitPDisp-10.ttf" "$HOME/.local/share/fonts/BitPDisp-10.ttf"
-        fc-cache -f >/dev/null
-        return 0
-    fi
-    local mono; mono="$(find_font DejaVuSansMono.ttf)"
-    [[ -n "$mono" ]] || die "DejaVuSansMono.ttf not found (dnf install dejavu-sans-mono-fonts)"
-    command -v python3 >/dev/null || die "python3 required"
-    local out="$VSTBRIDGE_HOME/BitPDisp-10.ttf"
-    python3 - "$mono" "$out" <<'EOF' || die "fontTools rename failed (dnf install python3-fonttools)"
-import sys
-from fontTools.ttLib import TTFont
-font = TTFont(sys.argv[1])
-for rec in font['name'].names:
-    if rec.nameID in (1, 4, 6):  # Family, Full name, PostScript name
-        rec.string = 'BitPDisp-10'
-font.save(sys.argv[2])
-EOF
-    # Serum reads it from the skin's font folder (VSTGUI custom collection)
-    # and DWrite's system collection reads it via fontconfig.
-    if [[ -d "$(dirname "$skin")" || -d "$skin" ]]; then
-        mkdir -p "$skin"; cp -f "$out" "$skin/BitPDisp-10.ttf"
-    else
-        warn "Serum skin folder not found yet (install/run Serum 2 once, then rerun) - installing to fontconfig only"
-    fi
-    cp -f "$out" "$HOME/.local/share/fonts/BitPDisp-10.ttf"
-    fc-cache -f >/dev/null
-    log "BitPDisp-10 substitute installed [W6]"
-}
-
 cmd_doctor() {
     local ok=0
     echo "--- vstbridge doctor ---"
@@ -528,7 +477,7 @@ commands already do this for you).
 EOF
 }
 
-usage() { sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'; }
 
 # --- dispatch ----------------------------------------------------------------
 
@@ -542,7 +491,6 @@ case "${1:-}" in
     sync)           shift; cmd_sync "$@" ;;
     fix-fonts)      shift; cmd_fix_fonts "$@" ;;
     ni-postinstall) shift; cmd_ni_postinstall "$@" ;;
-    serum-fonts)    shift; cmd_serum_fonts "$@" ;;
     doctor)         shift; cmd_doctor "$@" ;;
     vendors)        shift; cmd_vendors "$@" ;;
     paths)          shift; cmd_paths "$@" ;;
