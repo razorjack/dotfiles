@@ -79,7 +79,7 @@ setup_repos() {
     sudo dnf copr enable -y "$copr"
   done
 
-  msg "Browsers / 1Password / mise repos"
+  msg "Browsers / 1Password / mise / Tailscale repos"
   # Google Chrome (stable + dev; Linux has no "Canary" channel, dev is closest).
   sudo dnf install -y fedora-workstation-repositories
   sudo dnf config-manager setopt google-chrome.enabled=1
@@ -102,6 +102,9 @@ EOF
 
   # mise (runtime manager) from its own repo.
   sudo dnf config-manager addrepo --overwrite --from-repofile=https://mise.jdx.dev/rpm/mise.repo
+
+  # Tailscale from its own repo: Fedora's package lags upstream releases.
+  sudo dnf config-manager addrepo --overwrite --from-repofile=https://pkgs.tailscale.com/stable/fedora/tailscale.repo
 }
 
 # ---------------------------------------------------------------------------
@@ -132,7 +135,11 @@ setup_packages() {
     ghostty \
     brave-browser brave-browser-beta \
     google-chrome-stable google-chrome-unstable \
-    1password 1password-cli
+    1password 1password-cli \
+    tailscale
+
+  # Joining the tailnet is interactive: run `sudo tailscale up` once.
+  sudo systemctl enable --now tailscaled
 
   msg "Build deps so mise can compile Ruby if no prebuilt binary exists"
   sudo dnf install -y \
