@@ -375,9 +375,20 @@ EOF
 # ---------------------------------------------------------------------------
 # 12. KDE: fast key repeat (the macOS KeyRepeat=1 / InitialKeyRepeat=15 feel).
 #     Natural scrolling and window animations left at KDE defaults per your call.
+#     Keyboard layout is Polish (Programmers) only: it is the full US layout
+#     plus Polish letters on AltGr, so a separate "us" layout adds nothing.
+#     localectl sets the system default (SDDM, new users); kxkbrc pins it for
+#     this user, since Plasma otherwise inherits localectl's list as-is.
 # ---------------------------------------------------------------------------
 setup_kde() {
+  msg "Keyboard layout: Polish (Programmers)"
+  sudo localectl set-x11-keymap pl pc105
+
   if command -v kwriteconfig6 >/dev/null; then
+    kwriteconfig6 --file kxkbrc --group Layout --key Use true
+    kwriteconfig6 --file kxkbrc --group Layout --key LayoutList pl
+    kwriteconfig6 --file kxkbrc --group Layout --key VariantList ""
+
     msg "KDE keyboard repeat (fast repeat, short delay)"
     kwriteconfig6 --file kcminputrc --group Keyboard --key RepeatDelay 250
     kwriteconfig6 --file kcminputrc --group Keyboard --key RepeatRate 50
