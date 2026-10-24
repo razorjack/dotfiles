@@ -40,3 +40,8 @@ def dbdump():
 @pytest.fixture(scope="session")
 def dotcheck():
     return load("dotcheck")
+
+
+@pytest.fixture(scope="session")
+def subs():
+    return load("subs")

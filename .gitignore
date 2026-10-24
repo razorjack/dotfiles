@@ -139,6 +139,7 @@
 !/.local/bin/scan2pdf
 !/.local/bin/xzarchive
 !/.local/bin/dbdump
+!/.local/bin/subs
 !/.local/bin/dotcheck
 !/.local/bin/yadm
 !/.local/lib/
