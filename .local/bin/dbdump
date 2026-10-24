@@ -11,15 +11,16 @@ import datetime
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
 from rich.markup import escape
-from rzr import cli, die, main, ok, status
+from rzr import cli, die, fail, main, ok, status
 
 DUMPS = {
-    "mongo": ["mongodump", "--archive", "--quiet"],
     "postgres": ["pg_dumpall"],
+    "mongo": ["mongodump", "--archive", "--quiet"],
 }
 
 
@@ -65,23 +66,28 @@ def dump(command, dest):
 def backup(directory, now=None):
     now = now or datetime.datetime.now(datetime.UTC)
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    saved, failed = [], {}
     with tempfile.TemporaryDirectory(prefix=".dbdump-", dir=directory) as tmp:
         work = Path(tmp)
-        pending = []
         for name, command in DUMPS.items():
             fresh = work / f"{name}.zst"
-            with status(f"Dumping {name}"):
-                dump(command, fresh)
+            try:
+                with status(f"Dumping {name}"):
+                    dump(command, fresh)
+            except (OSError, RuntimeError) as error:
+                failed[name] = error
+                continue
+            pending = []
             for stamp in (now.strftime("%Y-W%W"), now.strftime("%w")):
                 filename = f"{name}-{stamp}.zst"
                 staged = work / filename
                 shutil.copyfile(fresh, staged)
                 staged.chmod(0o600)
                 pending.append((staged, directory / filename))
-        # Neither database's previous backups change unless both dumps succeed.
-        for staged, dest in pending:
-            os.replace(staged, dest)
-    return [dest for _, dest in pending]
+            for staged, dest in pending:
+                os.replace(staged, dest)
+                saved.append(dest)
+    return saved, failed
 
 
 @main
@@ -90,8 +96,9 @@ def dbdump():
         "dbdump",
         "Save compressed MongoDB and PostgreSQL dumps.",
         "Example: dbdump\n\n"
-        "Keeps the existing weekly and weekday filenames. Replaces backups only\n"
-        "after both dumps and compression succeed. Uses each client's normal\n"
+        "Keeps the existing weekly and weekday filenames. Replaces a database's\n"
+        "backups only after its dump and compression succeed; a failed dump\n"
+        "leaves its previous backups in place. Uses each client's normal\n"
         "connection settings; no databases are modified.",
     )
     parser.add_argument(
@@ -105,10 +112,15 @@ def dbdump():
     if missing:
         die("missing tools: " + ", ".join(missing))
     try:
-        files = backup(args.directory)
-    except (OSError, RuntimeError) as error:
+        saved, failed = backup(args.directory)
+    except OSError as error:
         die(escape(str(error)))
-    ok(f"Saved [num]{len(files)}[/] backups in [path]{escape(str(args.directory))}[/]")
+    if saved:
+        ok(f"Saved [num]{len(saved)}[/] backups in [path]{escape(str(args.directory))}[/]")
+    for name, error in failed.items():
+        fail(f"{name}: {escape(str(error))}")
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

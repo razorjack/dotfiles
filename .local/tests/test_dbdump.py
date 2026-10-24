@@ -7,25 +7,31 @@ import pytest
 NOW = datetime.datetime(2026, 9, 5, tzinfo=datetime.UTC)
 
 
-def test_failed_second_dump_preserves_all_previous_backups(dbdump, tmp_path, monkeypatch):
+def test_failed_dump_keeps_its_previous_backups(dbdump, tmp_path, monkeypatch):
     previous = tmp_path / "mongo-6.zst"
     previous.write_bytes(b"previous backup")
 
     def dump(command, dest):
         dest.write_bytes(b"incomplete dump")
-        if command[0] == "pg_dumpall":
+        if command[0] == "mongodump":
             raise RuntimeError("connection failed")
 
     monkeypatch.setattr(dbdump, "dump", dump)
-    with pytest.raises(RuntimeError, match="connection failed"):
-        dbdump.backup(tmp_path, NOW)
+    saved, failed = dbdump.backup(tmp_path, NOW)
+    assert {path.name for path in saved} == {"postgres-2026-W35.zst", "postgres-6.zst"}
+    assert str(failed["mongo"]) == "connection failed"
     assert previous.read_bytes() == b"previous backup"
-    assert list(tmp_path.iterdir()) == [previous]
+    assert {path.name for path in tmp_path.iterdir()} == {
+        "mongo-6.zst",
+        "postgres-2026-W35.zst",
+        "postgres-6.zst",
+    }
 
 
 def test_backup_publishes_complete_private_files(dbdump, tmp_path, monkeypatch):
     monkeypatch.setattr(dbdump, "dump", lambda command, dest: dest.write_bytes(command[0].encode()))
-    files = dbdump.backup(tmp_path, NOW)
+    files, failed = dbdump.backup(tmp_path, NOW)
+    assert not failed
     assert {path.name for path in files} == {
         "mongo-2026-W35.zst",
         "mongo-6.zst",
