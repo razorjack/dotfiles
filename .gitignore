@@ -119,6 +119,12 @@
 /.config/yadm/*
 !/.config/yadm/bootstrap
 
+# zed: track only the settings; it also stores agent conversations and prompts here.
+!/.config/zed/
+/.config/zed/*
+!/.config/zed/settings.json
+!/.config/zed/tasks.json
+
 !/.config/zsh/
 /.config/zsh/.zcompdump*
 /.config/zsh/.zsh_sessions/

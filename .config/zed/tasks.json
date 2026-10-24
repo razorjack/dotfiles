@@ -1,0 +1,15 @@
+// Global tasks. The ruby-test tag puts a run button next to each test the Ruby
+// extension recognizes (Minitest, Rails tests, RSpec).
+[
+  {
+    "label": "test $ZED_RELATIVE_FILE:$ZED_ROW",
+    "command": "case \"$ZED_RELATIVE_FILE\" in *_spec.rb) bundle exec rspec \"$ZED_RELATIVE_FILE:$ZED_ROW\" ;; *) if [ -x bin/rails ]; then bin/rails test \"$ZED_RELATIVE_FILE:$ZED_ROW\"; else bundle exec ruby -Itest \"$ZED_RELATIVE_FILE\" -n \"/$ZED_CUSTOM_RUBY_TEST_NAME/\"; fi ;; esac",
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "tags": ["ruby-test"]
+  },
+  {
+    "label": "test $ZED_RELATIVE_FILE",
+    "command": "case \"$ZED_RELATIVE_FILE\" in *_spec.rb) bundle exec rspec \"$ZED_RELATIVE_FILE\" ;; *) if [ -x bin/rails ]; then bin/rails test \"$ZED_RELATIVE_FILE\"; else bundle exec ruby -Itest \"$ZED_RELATIVE_FILE\"; fi ;; esac",
+    "cwd": "$ZED_WORKTREE_ROOT"
+  }
+]
