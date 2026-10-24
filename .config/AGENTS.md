@@ -5,6 +5,7 @@
 ## Strict Rules
 
 - **NEVER push to git**: Do not run `git push` or `yadm push` under any circumstances. Commits can be created when requested, but pushing to remote is strictly forbidden.
+- **The repo is public**: everything committed here will be published. Before committing, check the change for secrets (tokens, keys, passwords), account, vault or item IDs, private hostnames and paths, and personal data. If anything should stay private, stop and warn the user instead of committing it. When re-including a directory in `.gitignore`, re-include only the specific files, and confirm with `git check-ignore` that the rest stays ignored.
 - **Short commit messages**: a concise title, no body unless the change genuinely needs explanation. Never write multi-paragraph commit descriptions.
 - **In `$HOME`, never edit through a yadm-generated symlink** (e.g. `~/.config/ghostty/linux.conf`): editors that save via rename replace the symlink with a regular file, and the next yadm command silently clobbers it. Edit the `##os.Linux` variant file instead.
 
