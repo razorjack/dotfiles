@@ -122,6 +122,7 @@
 !/.config/zsh/
 /.config/zsh/.zcompdump*
 /.config/zsh/.zsh_sessions/
+/.config/zsh/.zcompcache/
 
 # --- .local: only hand-written scripts, not installed binaries/symlinks ---
 !/.local/
