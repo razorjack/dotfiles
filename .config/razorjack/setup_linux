@@ -141,6 +141,13 @@ setup_packages() {
   # Joining the tailnet is interactive: run `sudo tailscale up` once.
   sudo systemctl enable --now tailscaled
 
+  # No Fedora package. Piped to `sudo bash` because the script otherwise runs
+  # `sudo -k`, dropping the cached credentials this run keeps alive.
+  msg "Heroku CLI (standalone tarball in /usr/local/lib/heroku, self-updating)"
+  command -v heroku >/dev/null || curl -fsSL https://cli-assets.heroku.com/install.sh | sudo bash
+  # The `heroku` alias in ~/.config/op/plugins.sh fetches the token from 1Password.
+  warn "Enable 1Password > Settings > Developer > Integrate with 1Password CLI."
+
   msg "Build deps so mise can compile Ruby if no prebuilt binary exists"
   sudo dnf install -y \
     gcc gcc-c++ make automake bison openssl-devel readline-devel zlib-devel \

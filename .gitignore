@@ -84,6 +84,11 @@
 /.config/mise/*
 !/.config/mise/config.toml
 
+# op: only the plugin aliases; config and plugins/ hold account and item IDs.
+!/.config/op/
+/.config/op/*
+!/.config/op/plugins.sh
+
 !/.config/nvim/
 /.config/nvim/*
 !/.config/nvim/.gitignore
