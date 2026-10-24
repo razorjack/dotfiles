@@ -19,6 +19,7 @@ source "$HOME/.config/shell/interactive.sh"
 # it back before compinit.
 [[ -n "$HOMEBREW_PREFIX" && -d "$HOMEBREW_PREFIX/share/zsh/site-functions" ]] && fpath=("$HOMEBREW_PREFIX/share/zsh/site-functions" $fpath)
 [[ -d "$RZR_PREFIX/share/zsh-completions" ]] && fpath=("$RZR_PREFIX/share/zsh-completions" $fpath)
+[[ -d "${XDG_DATA_HOME:-$HOME/.local/share}/zsh/site-functions" ]] && fpath=("${XDG_DATA_HOME:-$HOME/.local/share}/zsh/site-functions" $fpath)
 
 autoload -Uz compinit
 zstyle ':completion:*' menu select
