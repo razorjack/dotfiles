@@ -45,3 +45,8 @@ def dotcheck():
 @pytest.fixture(scope="session")
 def subs():
     return load("subs")
+
+
+@pytest.fixture(scope="session")
+def icloud():
+    return load("icloud")

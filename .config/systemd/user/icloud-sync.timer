@@ -1,0 +1,9 @@
+[Unit]
+Description=Sync ~/iCloudDrive with iCloud Drive every 15 minutes
+
+[Timer]
+OnStartupSec=2min
+OnUnitInactiveSec=15min
+
+[Install]
+WantedBy=timers.target

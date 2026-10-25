@@ -102,12 +102,19 @@
 !/.config/vim/vimrc
 !/.config/vim/colors/
 
-# systemd user units: only ydotoold is ours; voxtype et al. write units here too.
+# systemd user units: only ydotoold and icloud-sync are ours; voxtype et al. write units here too.
 !/.config/systemd/
 /.config/systemd/*
 !/.config/systemd/user/
 /.config/systemd/user/*
 !/.config/systemd/user/ydotoold.service
+!/.config/systemd/user/icloud-sync.service
+!/.config/systemd/user/icloud-sync.timer
+
+# icloud: track only the filter rules; rclone bisync writes filters.md5 next to them.
+!/.config/icloud/
+/.config/icloud/*
+!/.config/icloud/filters
 
 # voxtype: track only the config; it also stores downloaded Whisper models here
 !/.config/voxtype/
@@ -141,6 +148,7 @@
 !/.local/bin/dbdump
 !/.local/bin/subs
 !/.local/bin/dotcheck
+!/.local/bin/icloud
 !/.local/bin/yadm
 !/.local/lib/
 /.local/lib/*

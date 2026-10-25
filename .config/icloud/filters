@@ -1,0 +1,10 @@
+# rclone filter rules for `icloud sync`. After changing them, run `icloud resync`.
+
+# macOS metadata
+- .DS_Store
+- ._*
+- .Trash/**
+
+# iWork documents are bundles that rclone reports with wrong sizes (rclone#8404, #8176)
+- *.{pages,numbers,key}
+- *.{pages,numbers,key}/**

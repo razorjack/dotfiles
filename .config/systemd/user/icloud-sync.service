@@ -1,0 +1,7 @@
+[Unit]
+Description=Two-way sync of ~/iCloudDrive with iCloud Drive
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/icloud sync
+Nice=10

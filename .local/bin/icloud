@@ -1,0 +1,218 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["rzr"]
+# [tool.uv.sources]
+# rzr = { path = "../lib/rzr", editable = true }
+# ///
+"""Two-way sync of ~/iCloudDrive with iCloud Drive through rclone bisync."""
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+from rich.markup import escape
+from rzr import cli, die, info, main, ok, run, status, warn
+
+REMOTE = "icloud:"
+LOCAL = Path.home() / "iCloudDrive"
+CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "icloud"
+STATE = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "icloud"
+FILTERS = CONFIG / "filters"
+# Outside ~/.cache: losing the listings forces a full resync.
+WORKDIR = STATE / "bisync"
+FAILURES = STATE / "failures.json"
+
+BISYNC = [
+    "--filters-file", FILTERS,
+    "--workdir", WORKDIR,
+    "--create-empty-src-dirs",
+    "--resilient", "--recover", "--max-lock", "2m",
+]  # fmt: skip
+
+LOGIN_ERRORS = ("trust token expired", "please reauth", "requestPCS", "sign in failed")
+RESYNC_ERRORS = ("Must run --resync", "cannot find prior Path1 or Path2 listings")
+
+# How many consecutive failures of a kind before one notification. Network
+# hiccups fix themselves; an expired sign-in or a resync never does.
+PATIENCE = {"login": 1, "resync": 1, "error": 4}
+NOTICES = {
+    "login": ("iCloud sign-in expired", "Run: icloud login"),
+    "resync": ("iCloud sync needs a resync", "Run: icloud resync"),
+    "error": ("iCloud sync keeps failing", "See: journalctl --user -u icloud-sync"),
+}
+
+
+def signed_in():
+    if not shutil.which("rclone"):
+        return False
+    remotes = subprocess.run(["rclone", "listremotes"], capture_output=True, text=True)
+    return REMOTE in remotes.stdout.split()
+
+
+def initialized():
+    return any(WORKDIR.glob("*.path1.lst*"))
+
+
+def classify(output):
+    if any(error in output for error in LOGIN_ERRORS):
+        return "login"
+    if any(error in output for error in RESYNC_ERRORS):
+        return "resync"
+    return "error"
+
+
+def record(failures, kind):
+    count = failures["count"] + 1 if failures.get("kind") == kind else 1
+    return {"kind": kind, "count": count}, count == PATIENCE[kind]
+
+
+def load_failures():
+    try:
+        return json.loads(FAILURES.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def save_failures(failures):
+    STATE.mkdir(parents=True, exist_ok=True)
+    FAILURES.write_text(json.dumps(failures))
+
+
+def notify(kind):
+    title, body = NOTICES[kind]
+    subprocess.run(["notify-send", "--app-name=iCloud", "--icon=folder-cloud", title, body])
+
+
+def human(size):
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1000:
+            return f"{size:.0f} {unit}"
+        size /= 1000
+    return f"{size:.1f} TB"
+
+
+def bisync(*extra, quiet=True):
+    command = ["rclone", "bisync", REMOTE, LOCAL, *BISYNC, *extra]
+    return subprocess.run([str(c) for c in command], capture_output=quiet, text=True)
+
+
+def sync():
+    if not signed_in() or not initialized():
+        return
+    result = bisync()
+    if result.returncode == 0:
+        FAILURES.unlink(missing_ok=True)
+        return
+    sys.stderr.write(result.stderr)
+    failures, alert = record(load_failures(), classify(result.stderr))
+    save_failures(failures)
+    if alert:
+        notify(failures["kind"])
+    sys.exit(1)
+
+
+def login():
+    if signed_in():
+        info("Approve the sign-in on your iPhone, then enter the code")
+        run(["rclone", "config", "reconnect", REMOTE], quiet=False)
+    else:
+        info(
+            "New remote: name [accent]icloud[/], storage [accent]iclouddrive[/], "
+            "service [accent]drive[/], your regular Apple Account password"
+        )
+        run(["rclone", "config"], quiet=False)
+        if not signed_in():
+            die("No [accent]icloud[/] remote was created")
+    FAILURES.unlink(missing_ok=True)
+    ok("Signed in" + ("" if initialized() else ". Next: [cmd]icloud resync[/]"))
+
+
+def preview():
+    with status("Measuring iCloud Drive"):
+        result = run(["rclone", "size", REMOTE, "--json", "--filters-file", FILTERS])
+    size = json.loads(result.stdout)
+    info(
+        f"[num]{size['count']}[/] files, [num]{human(size['bytes'])}[/] "
+        f"will download to [path]{escape(str(LOCAL))}[/]"
+    )
+    if LOCAL.exists() and any(LOCAL.iterdir()):
+        warn("Files already in that folder will be uploaded to iCloud Drive")
+    return input("Continue? [y/N] ").strip().lower() == "y"
+
+
+def resync(yes):
+    if not signed_in():
+        die("Not signed in. Run: [cmd]icloud login[/]")
+    if not initialized() and not yes and not preview():
+        return
+    LOCAL.mkdir(exist_ok=True)
+    WORKDIR.mkdir(parents=True, exist_ok=True)
+    if bisync("--resync", "--progress", quiet=False).returncode:
+        die("Resync failed. Fix the error above and run [cmd]icloud resync[/] again")
+    FAILURES.unlink(missing_ok=True)
+    run(["systemctl", "--user", "daemon-reload"])
+    run(["systemctl", "--user", "enable", "--now", "icloud-sync.timer"])
+    ok(f"[path]{escape(str(LOCAL))}[/] is in sync. The timer keeps it that way")
+
+
+def report():
+    timer = subprocess.run(
+        ["systemctl", "--user", "is-active", "icloud-sync.timer"], capture_output=True, text=True
+    ).stdout.strip()
+    failures = load_failures()
+    checks = [
+        (signed_in(), "signed in", "not signed in: [cmd]icloud login[/]"),
+        (initialized(), "first sync done", "no first sync yet: [cmd]icloud resync[/]"),
+        (timer == "active", "timer active", "timer inactive"),
+        (not failures, "no failed runs", ""),
+    ]
+    for passed, good, bad in checks:
+        if passed:
+            ok(good)
+        elif bad:
+            warn(bad)
+    if failures:
+        title, body = NOTICES[failures["kind"]]
+        warn(f"{title} ([num]{failures['count']}[/] failed runs). {body}")
+
+
+@main
+def icloud():
+    parser = cli(
+        "icloud",
+        "Two-way sync of ~/iCloudDrive with iCloud Drive.",
+        "Setup (manual, not part of setup_linux):\n"
+        "  sudo dnf install rclone\n"
+        "  icloud login     sign in (again every 30 days)\n"
+        "  icloud resync    first full sync; shows the size, asks, enables the timer\n\n"
+        "The icloud-sync timer runs `icloud sync` every 15 minutes. Until both\n"
+        "steps are done, each run exits quietly. Failures send one desktop\n"
+        "notification, not one per run. Exclusions live in ~/.config/icloud/filters;\n"
+        "after changing them, run `icloud resync`.",
+    )
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("login", help="sign in or renew the 30-day sign-in")
+    commands.add_parser("sync", help="sync once (what the timer runs)")
+    commands.add_parser("status", help="show sign-in, timer and failure state")
+    full = commands.add_parser("resync", help="full sync; first run or after an abort")
+    full.add_argument("-y", "--yes", action="store_true", help="skip the size preview")
+    args = parser.parse_args()
+    if args.command in ("login", "resync") and not shutil.which("rclone"):
+        die("rclone is not installed: [cmd]sudo dnf install rclone[/]")
+    match args.command:
+        case "login":
+            login()
+        case "sync":
+            sync()
+        case "resync":
+            resync(args.yes)
+        case "status":
+            report()
+
+
+if __name__ == "__main__":
+    icloud()
