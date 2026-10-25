@@ -145,6 +145,7 @@ cask "transmit"
 cask "voxtype"
 cask "wkhtmltopdf"
 cask "xld"
+cask "zed"
 cask "zoom"
 mas "1Blocker", id: 1365531024
 mas "Bear", id: 1091189122

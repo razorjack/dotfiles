@@ -265,9 +265,19 @@ setup_flatpaks() {
     us.zoom.Zoom \
     fr.handbrake.ghb \
     com.dropbox.Client \
-    dev.zed.Zed \
     io.github.shiftey.Desktop \
     org.telegram.desktop
+}
+
+# ---------------------------------------------------------------------------
+# 8b. Zed: Zed's own installer, the method it recommends for Linux. Installs to
+#     ~/.local/zed.app, links ~/.local/bin/zed, adds a .desktop entry, and the
+#     app updates itself. No sudo. Unlike the Flathub build, whose launcher
+#     points it at ~/.var/app/dev.zed.Zed/config, it reads ~/.config/zed.
+# ---------------------------------------------------------------------------
+setup_zed() {
+  msg "Zed (official installer, updates itself)"
+  [ -x "$HOME/.local/zed.app/bin/zed" ] || curl -fsSL https://zed.dev/install.sh | sh
 }
 
 # ---------------------------------------------------------------------------
@@ -643,6 +653,7 @@ main() {
   setup_services
   setup_mise
   setup_flatpaks
+  setup_zed
   setup_steam
   setup_jetbrains
   setup_fonts

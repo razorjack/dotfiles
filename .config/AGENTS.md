@@ -14,6 +14,17 @@
 - **Operating Systems**: Dual OS setup (macOS + Linux Fedora KDE)
 - New scripts and configurations should be compatible with both operating systems
 
+## Installing Software
+
+Every program comes from one source per OS. On macOS that is the Brewfile (formula or cask). On Linux, `setup_linux` uses the first source that fits:
+
+1. **Fedora repos**, including RPM Fusion.
+2. **The vendor's dnf repo or a maintained COPR** (Brave, 1Password, ghostty, keyd, ...).
+3. **The vendor's official installer**, when upstream recommends it for Linux and the program installs into `~/.local` and updates itself (Zed). Run it only when the program is missing, so re-running setup doesn't reinstall it.
+4. **Flatpak (Flathub)** for GUI apps that work well sandboxed: chat, media, proprietary desktop apps.
+
+Never use Homebrew on Linux. Don't install dev tools (editors, terminals, anything that needs the host toolchain, shell environment, or SSH agent) from Flatpak: the sandbox hides the toolchain, and a Flatpak reads its config from `~/.var/app/<id>/` instead of the tracked `~/.config/<tool>/`. Between otherwise equal sources, prefer the one that reads the standard XDG location.
+
 ## Directory Structure & XDG Compliance
 
 - **Config Location**: Prefer `~/.config/` for tool configurations that support XDG Base Directory Specification
@@ -105,14 +116,14 @@ Mise manages **all** language runtimes (Ruby, Node, ...). Never add a brew-insta
 
 - **Primary Languages**: Ruby, JavaScript (projects); Python (own tools, see below)
 - **Version Manager**: `mise` (manages both Ruby and Node.js installations)
-- **Editor**: Neovim with LazyVim
+- **Editors**: Neovim with LazyVim; Zed (config in `~/.config/zed/`)
 - **Git TUI**: Lazygit (aliased as `gg`)
 
 ## Own Tools (`~/.local/bin`)
 
 - **Python first.** A tool is a single file starting with `#!/usr/bin/env -S uv run --script` and a PEP 723 block (`# /// script ... # ///`) that declares `requires-python` and `dependencies`. uv resolves and caches on first run, and manages its own interpreter – tools never depend on mise's Python or on a project's `.mise.toml`. Reference: `narrate`, `scan2pdf`.
 - **Bash** only for short glue with no library needs and trivial arguments. Once a tool needs real argument parsing, temp files, JSON, or any library, it is Python.
-- **Native binaries** (tesseract, ghostscript, sane, ...) cannot come through uv: add them to both `~/.config/razorjack/Brewfile` and `setup_linux` (Fedora repos, else COPR – never brew on Linux).
+- **Native binaries** (tesseract, ghostscript, sane, ...) cannot come through uv: add them to both `~/.config/razorjack/Brewfile` and `setup_linux` (source per [Installing Software](#installing-software)).
 - **Shared look: `~/.local/lib/rzr`** (rich + rich-argparse, OneDark theme). Every Python tool depends on it:
   ```
   # dependencies = [..., "rzr"]
