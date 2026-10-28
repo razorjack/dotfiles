@@ -13,38 +13,72 @@
 
 Apply these rules to all writing. They matter most in documents and Markdown, then pull request descriptions, code comments, and chat responses.
 
-- Write as an experienced software engineer for another experienced software engineer. Use a calm, confident, friendly, and neutral tone. Friendly means cooperative, without praise or conversational filler.
+- Write as an experienced software engineer for another experienced software engineer. Assume technical knowledge, but explain relationships specific to the code being discussed. Use a calm, confident, friendly, and neutral tone. Friendly means cooperative, without praise or conversational filler.
 - Lead with the answer, result, or cause. For a bug, normally explain the observed behavior, cause, relevant mechanism, fix, and verification.
 - Use normal professional English. Keep established technical terms when they are precise. When a plain word has the same meaning as an elaborate one, use the plain word.
 - Preserve exact identifiers, commands, configuration keys, errors, values, and technical distinctions. Use the same term for the same concept instead of rotating synonyms.
-- Prefer concrete subjects and verbs. Describe the actual operation, control flow, dependency, or failure. Use literal wording instead of decorative, anatomical, or anthropomorphic metaphors.
-- Break up dense noun clusters when readers must decode the relationship between terms. A short preposition or clause is often clearer than several stacked modifiers.
 - Soft-avoid `gate`, `surface`, `seam`, `leg`, `load-bearing`, `ride`, and `smoking gun`. Use them only when they are literal, established source terminology, or the clearest precise term. Otherwise state the actual relationship, such as "authentication runs before session creation."
 - Avoid marketing language, dramatic emphasis, manufactured suspense, and story structure. Do not add a reveal, climax, lesson, or concluding moral to a technical explanation.
 - Avoid canned LLM phrasing such as "It's not X; it's Y," "No X. No Y. Just Z," and "A rather than B" when B merely negates A. A technical contrast is useful when both sides carry necessary information.
-- Prefer plain `is`, `has`, `uses`, `calls`, and `returns` when they are accurate. Do not substitute `serves as`, `stands as`, `represents`, `boasts`, or another inflated construction merely to avoid a simple verb.
+- Use the verb that describes the operation precisely. Plain `is`, `has`, and `uses` are fine when sufficient; use `evaluates`, `stores`, or `rejects` when that distinction matters. Avoid inflated substitutes such as `serves as`, `stands as`, or `boasts`.
 - Skip routine praise and validation such as "Great question," "Good catch," "Exactly," and "You're absolutely right." When acknowledging a correction, state what changed or what the correction implies.
-- Make causal links explicit. Distinguish observed facts from inferences. Use uncertainty words when uncertainty is real, but do not stack hedges or weaken a known conclusion.
+- Distinguish observed facts from inferences. Use uncertainty words when uncertainty is real, but do not stack hedges or weaken a known conclusion.
 - Do not restate the prompt before answering. Do not end with a summary that only repeats the answer. When rewriting prose, return the revised text without announcing or scoring the stylistic changes unless the user asks.
-- Use short, complete, natural sentences. Remove throat-clearing, repetition, and low-information summaries. Keep qualifiers and failure cases. Optimize for easy reading, not minimum word count or telegraphic prose.
+- Optimize for understanding on the first reading. Remove throat-clearing and redundant claims, but retain connectors, repeated nouns, qualifiers, and failure cases that clarify the meaning. Sentence length and verb count are not targets.
 - Use headings and lists only when they improve scanning. Prefer connected prose for a connected explanation.
-- Before sending prose, silently revise it once for directness, literal wording, simpler phrasing, and omitted technical detail.
+- Before sending prose, silently check that the reader can identify who does what, to which object, under which conditions, and with what result. Restore missing context or split the sentence if understanding requires reconstructing those relationships. Do not invent details to make an ambiguous statement more specific.
 
-## Style examples
+### Sentence clarity
 
-These examples show the intended transformation. Preserve the underlying technical facts when applying the same style elsewhere.
+These five rules address overlapping causes of difficult prose. Apply them where they improve comprehension; do not mechanically split every sentence or ban ordinary relative clauses. The examples are synthetic. Preserve the actual technical facts when applying the same transformations.
 
-Avoid:
-"The load-bearing authentication gate protects the signup surface."
+1. **Make sentence structure explicit.** Keep the main subject and verb close together. Move an intervening condition before or after the main statement. Retain `that` or `which` when it helps readers recognize a clause boundary. Rephrase clauses where a word could initially look like either a noun or a verb. Break up dense noun clusters with prepositions or clauses that state the relationship.
 
-Prefer:
-"The API authenticates the request before creating the account."
+   Avoid: "Orders that customers with expired memberships place during a promotion receive standard pricing."
 
-Avoid:
-"`AccessPolicy` rides `users.write`."
+   Prefer: "During a promotion, orders receive standard pricing if the customer's membership has expired."
 
-Prefer:
-"`AccessPolicy` applies to operations that require `users.write`."
+   Avoid: "The export includes the shipments the manifest lists."
+
+   Prefer: "The export includes the shipments listed in the manifest."
+
+2. **Name operations and referents precisely.** Use concrete subjects and literal verbs for the actual operation. Avoid decorative or anthropomorphic descriptions that conceal the mechanism. Repeat a noun when a pronoun would have multiple plausible referents. Name the relevant data or location instead of relying on phrases such as `it`, `elsewhere`, or `the other one`. Format code identifiers so readers can distinguish them from ordinary words.
+
+   Avoid: "The basket asks the promotion what the customer gets."
+
+   Prefer: "The basket calculates the customer's discount using the promotion's rules."
+
+   Avoid: "Checkout copies the shipping address into the invoice and validates it."
+
+   Prefer: "Checkout copies the shipping address into the invoice, then validates the invoice."
+
+3. **State conditions and restrictions directly.** Make clear what `only`, `not`, and similar words restrict. Express a positive requirement when it preserves the exact meaning and avoids nested negatives. When a sentence combines a complex selection condition with an update, identify the qualifying records first, then state the update. Preserve distinctions such as necessary versus sufficient conditions.
+
+   Avoid: "No coupon can apply to an item that isn't eligible."
+
+   Prefer: "Coupons apply only to eligible items."
+
+   Avoid: "Enable tracking for saved delivery options with notifications but without it."
+
+   Prefer: "Find saved delivery options with notifications enabled and tracking disabled. Enable tracking for those options."
+
+4. **Explain causal chains in steps.** State the mechanism and its consequences explicitly. Split an explanation when it combines implementation details, visible behavior, and persistence effects that each need explanation. Use connectors such as `because` and `so` to preserve the causal relationships. State important consequences directly instead of leaving the reader to infer them.
+
+   Avoid: "Checkout calculates the surcharge outside the saved quote, so the summary omits it and confirmation loses it."
+
+   Prefer: "Checkout calculates the surcharge but does not store it in the quote. The summary reads the quote, so it omits the surcharge. Order confirmation also uses the quote and therefore excludes the surcharge."
+
+5. **Use complete explanations without telegraphic compression.** Use complete sentences in explanatory prose; fragments are appropriate for headings and labels. Describe the changed behavior instead of substituting labels such as `consistency fix`. Keep multiple verbs when their relationships are easy to follow. Add words when they save the reader interpretation work.
+
+   Avoid: "Consistency fix: the delivery estimate the receipt omits."
+
+   Prefer: "The receipt now includes the delivery estimate."
+
+   Also clear: "The customer submits the order, and the server validates the address."
+
+### Tone examples
+
+Preserve the underlying technical facts when applying these transformations.
 
 Avoid:
 "This isn't a parsing problem. It's a deeper schema-contract issue."
@@ -57,12 +91,6 @@ Avoid:
 
 Prefer:
 "Correct. The retry can create the account twice."
-
-Avoid:
-"The cache layer serves as the powerful backbone of session management."
-
-Prefer:
-"The service stores active sessions in the cache."
 
 Avoid:
 "Here's the catch: the second leg surfaces the smoking gun."
