@@ -34,3 +34,45 @@ tabbar tabbox tab:selected {
 tabbar tabbox tab label {
   font-size: 11px;
 }
+
+/* Header bar with tabs (gtk-titlebar-style = tabs): libadwaita sizes it for
+   touch (46px, 34px buttons). Trim it to ~29px, about a Breeze title bar.
+   In this mode Ghostty's buttons live in the tab bar's start/end actions, not
+   directly in headerbar, hence the tabbar selectors. Custom CSS is loaded at
+   user priority, so these plain selectors beat libadwaita's more specific
+   ones. */
+
+headerbar {
+  min-height: 0;
+}
+
+headerbar > windowhandle > box {
+  padding: 1px 4px;
+}
+
+headerbar button,
+tabbar button,
+windowcontrols > button {
+  min-height: 20px;
+  min-width: 20px;
+  padding: 1px;
+}
+
+windowcontrols > button > image {
+  padding: 3px;
+}
+
+tabbar .start-action,
+tabbar .end-action {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+tabbar tab button.image-button {
+  min-height: 16px;
+  min-width: 16px;
+}
+
+windowcontrols > .icon {
+  margin: 3px;
+}

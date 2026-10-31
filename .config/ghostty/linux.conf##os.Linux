@@ -7,12 +7,13 @@
 # "150%" HiDPI mode, so the shared font-size 15 looks huge here. Tune to taste.
 font-size = 11
 
-# macOS puts tabs in the title bar (one bar). On KDE the default is a
-# server-side title bar PLUS Ghostty's tab bar (two bars). Drop the redundant
-# title bar so only the tab bar remains (it shows when you have >1 tab).
-# Trade-off: no window buttons - use Meta+drag to move, Meta+Q to close.
-# Prefer a title bar WITH window controls? Use:  window-decoration = client
-window-decoration = none
+# Tabs in the title bar, like macos-titlebar-style = tabs. On KDE, `auto`
+# picks KWin's server-side title bar, which can't host tabs, so force GTK's
+# client-side header bar and merge the tab bar into it. This keeps resize
+# borders and window buttons. Tab titles aren't drag handles; drag the empty
+# part of the bar instead.
+window-decoration = client
+gtk-titlebar-style = tabs
 
 # KDE renders the GTK tab bar at 1.5x too, so it looks huge next to the smaller
 # font. There is no per-app scale on Plasma 6 Wayland (Wayland core is
