@@ -259,7 +259,6 @@ setup_flatpaks() {
   msg "Flatpak GUI apps"
   flatpak install -y --noninteractive flathub \
     md.obsidian.Obsidian \
-    com.discordapp.Discord \
     com.slack.Slack \
     com.spotify.Client \
     us.zoom.Zoom \
@@ -281,11 +280,20 @@ setup_zed() {
 }
 
 # ---------------------------------------------------------------------------
-# 9. Steam (RPM Fusion nonfree; needs multilib, which dnf pulls in).
+# 9. Steam (RPM Fusion nonfree; needs multilib, which dnf pulls in) and
+#    Discord (RPM Fusion nonfree). The Flathub Discord can't show the game
+#    being played: its PID namespace hides host processes from game detection,
+#    and its Rich Presence socket lives under $XDG_RUNTIME_DIR/app/, where
+#    games don't look. The RPM ships only Discord's updater bootstrap; the
+#    client installs into ~/.config/discord and updates itself.
 # ---------------------------------------------------------------------------
 setup_steam() {
-  msg "Steam"
-  sudo dnf install -y steam
+  msg "Steam + Discord"
+  sudo dnf install -y steam discord
+  if flatpak info com.discordapp.Discord >/dev/null 2>&1; then
+    flatpak uninstall -y --noninteractive com.discordapp.Discord
+    warn "Removed the Flatpak Discord; its data in ~/.var/app/com.discordapp.Discord stays."
+  fi
 }
 
 # ---------------------------------------------------------------------------
