@@ -1,0 +1,378 @@
+#!/usr/bin/env python3
+"""Build and install a Wine wbemprox.dll that implements MSFT_NetAdapter.
+
+Developed for Bogren Digital MLC S_Zero 93 and MLC S_Zero 100, which fail
+activation under Wine with TurboActivate error 28.
+
+Standard library only, so that this folder works on its own. See README.md.
+"""
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import urllib.request
+from hashlib import sha256
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+PATCH = HERE / "wbemprox-msft-netadapter.patch"
+QUERY_SRC = HERE / "netadapter_query.c"
+
+DEFAULT_REPO = "https://gitlab.winehq.org/wine/wine.git"
+DEFAULT_REF = "wine-11.21"
+TARGET = "dlls/wbemprox/x86_64-windows/wbemprox.dll"
+CONFIGURE = [
+    "--enable-archs=x86_64",
+    "--without-x",
+    "--without-freetype",
+    "--disable-tests",
+    "--disable-win16",
+]
+TOOLS = ["git", "gcc", "make", "flex", "bison", "x86_64-w64-mingw32-gcc"]
+BUILD_SIGNATURE = b"Wine builtin DLL"
+STATE_DIR = "wbemprox-msft-netadapter"
+
+
+def step(text):
+    print(f"▸ {text}", flush=True)
+
+
+def ok(text):
+    print(f"✓ {text}", flush=True)
+
+
+def warn(text):
+    print(f"! {text}", file=sys.stderr, flush=True)
+
+
+def die(text):
+    print(f"✗ {text}", file=sys.stderr)
+    sys.exit(1)
+
+
+def run(cmd, cwd=None, log=None, env=None):
+    """Run cmd, keeping its output out of the terminal unless it fails."""
+    result = subprocess.run(
+        [str(c) for c in cmd],
+        cwd=cwd,
+        env=env,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        errors="replace",
+    )
+    if log:
+        with log.open("a") as out:
+            out.write(f"$ {' '.join(str(c) for c in cmd)}\n{result.stdout}\n")
+    if result.returncode:
+        tail = "\n".join(result.stdout.splitlines()[-25:])
+        where = f" Full output: {log}" if log else ""
+        die(f"{Path(str(cmd[0])).name} failed with status {result.returncode}.{where}\n{tail}")
+    return result.stdout
+
+
+def digest(path):
+    return sha256(Path(path).read_bytes()).hexdigest()
+
+
+class Runner:
+    LIB_DIRS = ("usr/lib64/wine", "usr/lib/wine", "lib64/wine", "lib/wine")
+    BIN_NAMES = ("usr/bin/wine", "bin/wine")
+
+    def __init__(self, arg):
+        given = Path(arg).expanduser()
+        for base in [given, *list(given.parents)[:3]]:
+            for lib in self.LIB_DIRS:
+                dll = base / lib / "x86_64-windows" / "wbemprox.dll"
+                if dll.is_file():
+                    self.root = base
+                    self.wine_dir = base / lib
+                    self.dll = dll
+                    self.state_dir = base / lib / STATE_DIR
+                    self.state_file = self.state_dir / "state.json"
+                    self.wine = next(
+                        (base / name for name in self.BIN_NAMES if (base / name).exists()),
+                        None,
+                    )
+                    return
+        die(f"{given} has no x86_64 wbemprox.dll. Pass the runner root or its wine binary.")
+
+    def state(self):
+        if not self.state_file.is_file():
+            return None
+        return json.loads(self.state_file.read_text())
+
+    def write_state(self, state):
+        self.state_dir.mkdir(exist_ok=True)
+        tmp = self.state_file.with_suffix(".tmp")
+        tmp.write_text(json.dumps(state, indent=2) + "\n")
+        os.replace(tmp, self.state_file)
+
+    def backup_path(self, sha):
+        return self.state_dir / f"wbemprox-{sha[:16]}.dll"
+
+    def version(self):
+        if not self.wine:
+            return None
+        out = subprocess.run(
+            [str(self.wine), "--version"],
+            check=False,
+            capture_output=True,
+            text=True,
+            errors="replace",
+        ).stdout
+        match = re.search(r"wine-(\d+\.\d+)", out)
+        return match.group(1) if match else None
+
+
+def require_tools():
+    missing = [tool for tool in TOOLS if not shutil.which(tool)]
+    if missing:
+        die(
+            f"missing: {', '.join(missing)}. On Fedora: sudo dnf install git gcc make flex bison "
+            "mingw64-gcc. On Debian or Ubuntu: sudo apt install git gcc make flex bison "
+            "gcc-mingw-w64-x86-64."
+        )
+
+
+def fetch(cache, repo, ref):
+    src = cache / "src"
+    log = cache / "build.log"
+    if not (src / ".git").is_dir():
+        src.mkdir(parents=True)
+        run(["git", "init", "-q", src], log=log)
+    step(f"fetching {ref} from {repo}")
+    run(["git", "-C", src, "fetch", "-q", "--depth=1", repo, ref], log=log)
+    run(["git", "-C", src, "checkout", "-q", "-f", "--detach", "FETCH_HEAD"], log=log)
+    run(["git", "-C", src, "clean", "-q", "-fdx"], log=log)
+    return src, run(["git", "-C", src, "rev-parse", "HEAD"], log=log).strip()
+
+
+def apply_patches(cache, src, extras):
+    patches = []
+    for index, extra in enumerate(extras):
+        if re.match(r"https?://", extra):
+            target = cache / f"extra-{index}.patch"
+            step(f"downloading {extra}")
+            with urllib.request.urlopen(extra, timeout=60) as response, target.open("wb") as out:
+                shutil.copyfileobj(response, out)
+            patches.append(target)
+        else:
+            patches.append(Path(extra).expanduser())
+    patches.append(PATCH)
+    for patch in patches:
+        result = subprocess.run(
+            ["git", "-C", str(src), "apply", "--whitespace=nowarn", str(patch)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode:
+            die(
+                f"{patch.name} does not apply to this source:\n{result.stderr.strip()}\n"
+                'See "Applying to another Wine version" in README.md.'
+            )
+    return [digest(p) for p in patches]
+
+
+def build(cache, src, commit):
+    build_dir = cache / "build"
+    log = cache / "build.log"
+    stamp = build_dir / ".configure-stamp"
+    wanted = json.dumps({"commit": commit, "args": CONFIGURE})
+    if not stamp.is_file() or stamp.read_text() != wanted:
+        shutil.rmtree(build_dir, ignore_errors=True)
+        build_dir.mkdir(parents=True)
+        step("configuring (x86_64 only)")
+        run([src / "configure", *CONFIGURE], cwd=build_dir, log=log)
+        stamp.write_text(wanted)
+    step("building wbemprox.dll and the tools it needs (a few minutes on the first run)")
+    run(["make", f"-j{os.cpu_count() or 2}", TARGET], cwd=build_dir, log=log)
+    output = build_dir / TARGET
+    if not output.is_file():
+        die(f"make finished without producing {output}")
+    if BUILD_SIGNATURE not in output.read_bytes()[:256]:
+        die(f"{output} has no Wine builtin signature, so Wine would ignore it")
+    return output
+
+
+def install_dll(runner, built, info):
+    current_sha = digest(runner.dll)
+    state = runner.state() or {}
+    if current_sha == state.get("patched_sha256"):
+        original = state["original_sha256"]
+    else:
+        original = current_sha
+        runner.state_dir.mkdir(exist_ok=True)
+        backup = runner.backup_path(original)
+        if not backup.exists():
+            shutil.copy2(runner.dll, backup)
+            ok(f"original saved as {backup}")
+
+    built_sha = digest(built)
+    if built_sha == current_sha:
+        runner.write_state({**info, "original_sha256": original, "patched_sha256": built_sha})
+        ok(f"already installed: {runner.dll}")
+        return
+
+    runner.write_state({**info, "original_sha256": original, "patched_sha256": built_sha})
+    fd, tmp = tempfile.mkstemp(dir=runner.dll.parent, prefix=".wbemprox-")
+    os.close(fd)
+    shutil.copyfile(built, tmp)
+    os.chmod(tmp, runner.dll.stat().st_mode & 0o777)
+    os.replace(tmp, runner.dll)
+    ok(f"installed {runner.dll}")
+
+
+def cmd_install(args):
+    require_tools()
+    runner = Runner(args.runner)
+    if not os.access(runner.dll.parent, os.W_OK):
+        die(f"{runner.dll.parent} is not writable. Rerun as a user who can write there.")
+    version = runner.version()
+    match = re.fullmatch(r"wine-(\d+\.\d+)", args.ref)
+    if match and version and match.group(1) != version:
+        warn(f"the runner is Wine {version} and the source is {args.ref}. Prefer a matching --ref.")
+
+    cache = Path(args.cache or os.environ.get("XDG_CACHE_HOME", "~/.cache")).expanduser()
+    if not args.cache:
+        cache = cache / "wine-msft-netadapter"
+    cache.mkdir(parents=True, exist_ok=True)
+    (cache / "build.log").write_text("")
+
+    src, commit = fetch(cache, args.repo, args.ref)
+    step(f"source commit {commit}")
+    patch_hashes = apply_patches(cache, src, args.extra_patch)
+    built = build(cache, src, commit)
+    info = {"repo": args.repo, "ref": args.ref, "commit": commit, "patch_sha256": patch_hashes}
+    install_dll(runner, built, info)
+    print(f"Next: {Path(__file__).name} verify --runner {runner.root} --prefix <prefix>")
+
+
+def cmd_restore(args):
+    runner = Runner(args.runner)
+    state = runner.state()
+    if not state:
+        die("no install is recorded for this runner, so there is nothing to restore")
+    current = digest(runner.dll)
+    if current == state["original_sha256"]:
+        ok("the runner already has its original wbemprox.dll")
+        return
+    if current != state["patched_sha256"] and not args.force:
+        die(f"{runner.dll} is neither the patched DLL nor the original. Use --force to replace it.")
+    backup = runner.backup_path(state["original_sha256"])
+    if not backup.is_file():
+        die(f"the backup {backup} is missing")
+    fd, tmp = tempfile.mkstemp(dir=runner.dll.parent, prefix=".wbemprox-")
+    os.close(fd)
+    shutil.copyfile(backup, tmp)
+    os.chmod(tmp, runner.dll.stat().st_mode & 0o777)
+    os.replace(tmp, runner.dll)
+    runner.state_file.unlink()
+    ok(f"restored the original wbemprox.dll. The backup stays at {backup}.")
+
+
+def cmd_status(args):
+    runner = Runner(args.runner)
+    state = runner.state()
+    current = digest(runner.dll)
+    print(f"DLL:       {runner.dll}")
+    print(f"SHA-256:   {current}")
+    if not state:
+        print("Status:    no install recorded")
+        return
+    if current == state["patched_sha256"]:
+        status = "patched"
+    elif current == state["original_sha256"]:
+        status = "original"
+    else:
+        status = "unknown build (changed after the last install)"
+    print(f"Status:    {status}")
+    print(f"Source:    {state['repo']} {state['ref']} ({state['commit']})")
+    print(f"Backup:    {runner.backup_path(state['original_sha256'])}")
+
+
+def cmd_verify(args):
+    runner = Runner(args.runner)
+    if not runner.wine:
+        die("the runner has no wine binary at usr/bin/wine or bin/wine")
+    prefix = Path(args.prefix).expanduser()
+    if not (prefix / "system.reg").is_file():
+        die(f"{prefix} is not an initialized Wine prefix")
+    gcc = shutil.which("x86_64-w64-mingw32-gcc")
+    if not gcc:
+        die("x86_64-w64-mingw32-gcc is missing")
+    with tempfile.TemporaryDirectory() as tmp:
+        exe = Path(tmp) / "netadapter_query.exe"
+        run([gcc, "-municode", "-o", exe, QUERY_SRC, "-lole32", "-loleaut32", "-lwbemuuid"])
+        env = {**os.environ, "WINEPREFIX": str(prefix), "WINEDEBUG": "-all"}
+        env.pop("DISPLAY", None)
+        env.pop("WAYLAND_DISPLAY", None)
+        cmd = [str(runner.wine), str(exe)]
+        if args.full:
+            cmd.append("--full")
+        result = subprocess.run(
+            cmd, env=env, check=False, capture_output=True, text=True, errors="replace"
+        )
+    print(result.stdout, end="")
+    if result.returncode == 0:
+        ok("the strict query returns adapters with a permanent address")
+    elif result.returncode == 1:
+        die("the strict query returned no adapter with a permanent address")
+    else:
+        print(result.stderr, file=sys.stderr)
+        die(f"the verification program failed with status {result.returncode}")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Wine wbemprox.dll with MSFT_NetAdapter (TurboActivate error 28)."
+    )
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    install = commands.add_parser("install", help="fetch, patch, build, back up, install")
+    install.add_argument("--runner", required=True, help="runner root directory or its wine binary")
+    install.add_argument(
+        "--repo", default=DEFAULT_REPO, help=f"Wine source git URL (default {DEFAULT_REPO})"
+    )
+    install.add_argument(
+        "--ref", default=DEFAULT_REF, help=f"tag, branch or commit (default {DEFAULT_REF})"
+    )
+    install.add_argument(
+        "--extra-patch",
+        action="append",
+        default=[],
+        help="file or URL of a patch to apply before this one; can be repeated",
+    )
+    install.add_argument("--cache", help="work directory (default ~/.cache/wine-msft-netadapter)")
+    install.set_defaults(func=cmd_install)
+
+    restore = commands.add_parser("restore", help="put the original wbemprox.dll back")
+    restore.add_argument("--runner", required=True)
+    restore.add_argument(
+        "--force", action="store_true", help="replace a DLL that this tool did not install"
+    )
+    restore.set_defaults(func=cmd_restore)
+
+    status = commands.add_parser("status", help="show which wbemprox.dll a runner has")
+    status.add_argument("--runner", required=True)
+    status.set_defaults(func=cmd_status)
+
+    verify = commands.add_parser("verify", help="run TurboActivate's two queries in a prefix")
+    verify.add_argument("--runner", required=True)
+    verify.add_argument("--prefix", required=True, help="an initialized Wine prefix")
+    verify.add_argument("--full", action="store_true", help="print full addresses, unmasked")
+    verify.set_defaults(func=cmd_verify)
+
+    args = parser.parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()

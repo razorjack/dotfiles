@@ -1,0 +1,237 @@
+wbemprox: Add MSFT_NetAdapter to root\StandardCimv2.
+
+TurboActivate (wyDay, LimeLM) reads the network adapters of a machine through
+MSFT_NetAdapter on Windows 8 and later. Wine has the root\StandardCimv2
+namespace but no classes in it, so the query returns no rows and activation
+fails with error 28 (TA_E_ENABLE_NETWORK_ADAPTERS). Developed for Bogren
+Digital MLC S_Zero 93 and MLC S_Zero 100.
+
+The new table lists every adapter that is not a loopback interface and reports
+what the Linux host knows about it. Adapters that have a device in sysfs get a
+PCI\, USB\ or SD\ PNPDeviceID built from their real hardware IDs. Adapters
+without a device (bridges, veth, tunnels) get Virtual = TRUE and a ROOT\NET\
+PNPDeviceID, which is how Windows reports software adapters.
+PermanentAddress is the burned-in address for Wi-Fi and the current address
+for other adapters, in the Windows form: 12 upper-case hex digits with no
+separators.
+
+Written with LLM assistance (Claude). WineHQ's Clean-Room Guidelines exclude
+LLM-generated code, so this patch is not suitable for submission to Wine:
+https://gitlab.winehq.org/wine/wine/-/wikis/Clean-Room-Guidelines
+
+Base: wine-11.21 (2528aff26208257fdbf980666a4f0e66d47563ce).
+License: LGPL-2.1-or-later, the licence of the file it modifies.
+
+diff --git a/dlls/wbemprox/builtin.c b/dlls/wbemprox/builtin.c
+--- a/dlls/wbemprox/builtin.c
++++ b/dlls/wbemprox/builtin.c
+@@ -19,6 +19,8 @@
+ #define COBJMACROS
+ 
+ #include <stdarg.h>
++#include <stdio.h>
++#include <string.h>
+ 
+ #include "ntstatus.h"
+ #include "windef.h"
+@@ -258,6 +260,16 @@ static const struct column col_msft_phys_disk[] =
+     { L"Usage",                             CIM_UINT16 },
+     { L"VirtualDiskFootprint",              CIM_UINT64 },
+ };
++static const struct column col_msft_netadapter[] =
++{
++    { L"DeviceID",           CIM_STRING|COL_FLAG_DYNAMIC|COL_FLAG_KEY },
++    { L"InterfaceType",      CIM_UINT32 },
++    { L"NdisPhysicalMedium", CIM_UINT32 },
++    { L"PermanentAddress",   CIM_STRING|COL_FLAG_DYNAMIC },
++    { L"PNPDeviceID",        CIM_STRING|COL_FLAG_DYNAMIC },
++    { L"Virtual",            CIM_BOOLEAN },
++    { L"WdmInterface",       CIM_BOOLEAN },
++};
+ static const struct column col_networkadapter[] =
+ {
+     { L"AdapterType",         CIM_STRING },
+@@ -844,6 +856,16 @@ struct record_msft_phys_disk
+     UINT16        usage;
+     UINT64        virtual_disk_footprint;
+ };
++struct record_msft_netadapter
++{
++    const WCHAR *device_id;
++    UINT32       interface_type;
++    UINT32       ndis_physical_medium;
++    const WCHAR *permanent_address;
++    const WCHAR *pnpdevice_id;
++    int          is_virtual;
++    int          wdm_interface;
++};
+ struct record_networkadapter
+ {
+     const WCHAR *adaptertype;
+@@ -3285,6 +3307,145 @@ static enum fill_status fill_networkadapter( struct table *table, const struct e
+     return status;
+ }
+ 
++/* Adapter names in Wine are Linux interface names. Wine exposes neither the bus
++ * of an adapter nor its burned-in address, so read them from sysfs. */
++static BOOL read_sysfs_net( const WCHAR *ifname, const WCHAR *file, char *buf, DWORD size )
++{
++    WCHAR path[MAX_PATH];
++    HANDLE handle;
++    DWORD count = 0;
++    BOOL ret;
++
++    swprintf( path, ARRAY_SIZE(path), L"\\\\?\\unix\\sys\\class\\net\\%s\\%s", ifname, file );
++    handle = CreateFileW( path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL );
++    if (handle == INVALID_HANDLE_VALUE) return FALSE;
++    ret = ReadFile( handle, buf, size - 1, &count, NULL );
++    CloseHandle( handle );
++    buf[count] = 0;
++    return ret && count;
++}
++
++static const char *get_uevent_value( const char *event, const char *key )
++{
++    size_t len = strlen( key );
++    const char *line = event;
++
++    while (line)
++    {
++        if (!strncmp( line, key, len ) && line[len] == '=') return line + len + 1;
++        if ((line = strchr( line, '\n' ))) line++;
++    }
++    return NULL;
++}
++
++static WCHAR *get_netadapter_pnpdevice_id( const WCHAR *ifname, int *is_virtual, int *wdm_interface )
++{
++    char event[4096];
++    const char *value;
++    UINT vendor, device, sub_vendor = 0, sub_device = 0;
++    WCHAR *ret;
++
++    if (!(ret = malloc( 96 * sizeof(WCHAR) ))) return NULL;
++    *is_virtual = 0;
++    *wdm_interface = 0;
++
++    if (!read_sysfs_net( ifname, L"device\\uevent", event, sizeof(event) ))
++    {
++        *is_virtual = -1;
++        swprintf( ret, 96, L"ROOT\\NET\\%s", ifname );
++    }
++    else if ((value = get_uevent_value( event, "PCI_ID" )) && sscanf( value, "%x:%x", &vendor, &device ) == 2)
++    {
++        if ((value = get_uevent_value( event, "PCI_SUBSYS_ID" ))) sscanf( value, "%x:%x", &sub_vendor, &sub_device );
++        swprintf( ret, 96, L"PCI\\VEN_%04X&DEV_%04X&SUBSYS_%04X%04X\\%s", vendor, device, sub_device, sub_vendor, ifname );
++    }
++    else if ((value = get_uevent_value( event, "PRODUCT" )) && sscanf( value, "%x/%x", &vendor, &device ) == 2)
++    {
++        *wdm_interface = -1;
++        swprintf( ret, 96, L"USB\\VID_%04X&PID_%04X\\%s", vendor, device, ifname );
++    }
++    else if ((value = get_uevent_value( event, "SDIO_ID" )) && sscanf( value, "%x:%x", &vendor, &device ) == 2)
++    {
++        swprintf( ret, 96, L"SD\\VID_%04X&PID_%04X\\%s", vendor, device, ifname );
++    }
++    else swprintf( ret, 96, L"PLATFORM\\%s", ifname );
++    return ret;
++}
++
++static WCHAR *get_permanent_address( const WCHAR *ifname, const BYTE *addr, DWORD len )
++{
++    char text[32];
++    UINT perm[6];
++    WCHAR *ret;
++    int i;
++
++    /* NetworkManager and similar tools can replace the current address of a
++     * Wi-Fi adapter. The phy keeps the burned-in one. */
++    if (!read_sysfs_net( ifname, L"phy80211\\macaddress", text, sizeof(text) ) ||
++        sscanf( text, "%x:%x:%x:%x:%x:%x", &perm[0], &perm[1], &perm[2], &perm[3], &perm[4], &perm[5] ) != 6)
++    {
++        if (len != 6) return NULL;
++        for (i = 0; i < 6; i++) perm[i] = addr[i];
++    }
++    if (!(perm[0] | perm[1] | perm[2] | perm[3] | perm[4] | perm[5])) return NULL;
++    if (!(ret = malloc( 13 * sizeof(WCHAR) ))) return NULL;
++    swprintf( ret, 13, L"%02X%02X%02X%02X%02X%02X", perm[0], perm[1], perm[2], perm[3], perm[4], perm[5] );
++    return ret;
++}
++
++static UINT32 get_ndis_physical_medium( DWORD type )
++{
++    switch (type)
++    {
++    case IF_TYPE_IEEE80211:       return 9;  /* NdisPhysicalMediumNative802_11 */
++    case IF_TYPE_ETHERNET_CSMACD: return 14; /* NdisPhysicalMedium802_3 */
++    default:                      return 0;  /* NdisPhysicalMediumUnspecified */
++    }
++}
++
++static enum fill_status fill_msft_netadapter( struct table *table, const struct expr *cond )
++{
++    struct record_msft_netadapter *rec;
++    IP_ADAPTER_ADDRESSES *aa, *buffer;
++    UINT row = 0, offset = 0, count = 0;
++    enum fill_status status = FILL_STATUS_UNFILTERED;
++
++    if (!(buffer = get_network_adapters())) return FILL_STATUS_FAILED;
++
++    for (aa = buffer; aa; aa = aa->Next)
++    {
++        if (aa->IfType != IF_TYPE_SOFTWARE_LOOPBACK) count++;
++    }
++    if (!resize_table( table, count, sizeof(*rec) ))
++    {
++        free( buffer );
++        return FILL_STATUS_FAILED;
++    }
++    for (aa = buffer; aa; aa = aa->Next)
++    {
++        if (aa->IfType == IF_TYPE_SOFTWARE_LOOPBACK) continue;
++
++        rec = (struct record_msft_netadapter *)(table->data + offset);
++        rec->device_id            = get_networkadapter_guid( &aa->Luid );
++        rec->interface_type       = aa->IfType;
++        rec->ndis_physical_medium = get_ndis_physical_medium( aa->IfType );
++        rec->permanent_address    = get_permanent_address( aa->FriendlyName, aa->PhysicalAddress, aa->PhysicalAddressLength );
++        rec->pnpdevice_id         = get_netadapter_pnpdevice_id( aa->FriendlyName, &rec->is_virtual, &rec->wdm_interface );
++        if (!match_row( table, row, cond, &status ))
++        {
++            free_row_values( table, row );
++            continue;
++        }
++        offset += sizeof(*rec);
++        row++;
++    }
++    TRACE("created %u rows\n", row);
++    table->num_rows = row;
++
++    free( buffer );
++    return status;
++}
++
+ static WCHAR *get_dnshostname( IP_ADAPTER_UNICAST_ADDRESS *addr )
+ {
+     const SOCKET_ADDRESS *sa = &addr->Address;
+@@ -5104,6 +5265,11 @@ static struct table win_storage_builtin_classes[] =
+     { L"MSFT_PhysicalDisk", C(col_msft_phys_disk), 0, 0, NULL, fill_msft_phys_disk },
+ };
+ 
++static struct table standard_cimv2_builtin_classes[] =
++{
++    { L"MSFT_NetAdapter", C(col_msft_netadapter), 0, 0, NULL, fill_msft_netadapter },
++};
++
+ #undef C
+ #undef D
+ 
+@@ -5118,7 +5284,7 @@ builtin_namespaces[WBEMPROX_NAMESPACE_LAST] =
+     {L"cimv2", cimv2_builtin_classes, ARRAY_SIZE(cimv2_builtin_classes)},
+     {L"Microsoft\\Windows\\Storage", win_storage_builtin_classes, ARRAY_SIZE(win_storage_builtin_classes)},
+     {L"SecurityCenter2", NULL, 0},
+-    {L"StandardCimv2", NULL, 0},
++    {L"StandardCimv2", standard_cimv2_builtin_classes, ARRAY_SIZE(standard_cimv2_builtin_classes)},
+     {L"wmi", wmi_builtin_classes, ARRAY_SIZE(wmi_builtin_classes)},
+ };
+ 

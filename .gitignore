@@ -156,6 +156,7 @@
 !/.local/bin/dotcheck
 !/.local/bin/icloud
 !/.local/bin/yadm
+!/.local/bin/vstbridge##os.Linux
 !/.local/lib/
 /.local/lib/*
 !/.local/lib/rzr/

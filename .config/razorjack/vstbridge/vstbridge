@@ -1,0 +1,2229 @@
+#!/usr/bin/env bash
+#
+# vstbridge – Windows audio plugins in native Linux DAWs (Bitwig Studio, REAPER,
+# Renoise) through Wine and yabridge on Fedora KDE. Each vendor gets a Wine
+# prefix bound to a runner profile, and a generated WINELOADER dispatcher gives
+# every bridged plugin the runner and wineserver that its prefix was set up with.
+#
+# Configuration format, profiles, migration, rollback, evidence and the manual
+# acceptance matrix: README.md next to this script. `vstbridge help` lists
+# the commands.
+
+set -uo pipefail
+
+SELF=$(realpath -- "${BASH_SOURCE[0]}")
+CONF_DIR=${VSTBRIDGE_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/vstbridge}
+CONF=$CONF_DIR/vstbridge.conf
+DATA=${VSTBRIDGE_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/vstbridge}
+STATE=${VSTBRIDGE_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/vstbridge}
+YABRIDGE_HOME=${XDG_DATA_HOME:-$HOME/.local/share}/yabridge
+LOADER=$DATA/wineloader
+SHIMS=$DATA/shims
+BRIDGES=$DATA/bridges
+DAWS=(bitwig reaper renoise)
+FORMATS=(vst2 vst3 clap)
+BRIDGE_FILES=(yabridgectl yabridge-host.exe yabridge-host.exe.so
+    libyabridge-chainloader-vst2.so libyabridge-chainloader-vst3.so libyabridge-chainloader-clap.so
+    libyabridge-vst2.so libyabridge-vst3.so libyabridge-clap.so)
+YABRIDGE_OPTIONS=(group disable_pipes editor_disable_host_scaling editor_force_dnd frame_rate hide_daw vst3_prefer_32bit)
+PIN_NOTE='5.1.1-59-gf1fc21e6'
+V1_TOML_SHA256=49621d5dc896adc35a8eb6e5077f37803bd27e103a00509a658242104df7bd01
+MARK_BEGIN='# >>> vstbridge managed: generated from [yabridge] rules in vstbridge.conf >>>'
+MARK_END='# <<< vstbridge managed <<<'
+HKCU_DESKTOP='HKCU\Control Panel\Desktop'
+HKCU_PERSONALIZE='HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
+HKCU_OVERRIDES='HKCU\Software\Wine\DllOverrides'
+HKLM_FONTS='HKLM\Software\Microsoft\Windows NT\CurrentVersion\Fonts'
+HKLM_FONTLINK='HKLM\Software\Microsoft\Windows NT\CurrentVersion\FontLink\SystemLink'
+HKLM_FONTSUBST='HKLM\Software\Microsoft\Windows NT\CurrentVersion\FontSubstitutes'
+GRAPHICS_DLLS=(d3d8 d3d9 d3d10core d3d11 d3d12 d3d12core dxgi)
+WINDOW_METRICS=(CaptionFont SmCaptionFont MenuFont StatusFont MessageFont IconFont)
+
+if [[ -t 1 ]]; then
+    B=$'\e[1m' G=$'\e[32m' Y=$'\e[33m' R=$'\e[31m' D=$'\e[2m' N=$'\e[0m'
+else
+    B='' G='' Y='' R='' D='' N=''
+fi
+log()  { printf '%s▸%s %s\n' "$B" "$N" "$*"; }
+ok()   { printf '%s✓%s %s\n' "$G" "$N" "$*"; }
+warn() { printf '%s!%s %s\n' "$Y" "$N" "$*" >&2; }
+err()  { printf '%s✗%s %s\n' "$R" "$N" "$*" >&2; }
+die()  { err "$*"; exit 1; }
+note() { printf '  %s%s%s\n' "$D" "$*" "$N"; }
+
+PLAN=0
+plan() { printf '  would: %s\n' "$*"; }
+
+# --- configuration -------------------------------------------------------------
+
+default_conf() {
+    cat <<'EOF'
+# vstbridge configuration. Format and keys: README.md next to the script.
+# Whole-line comments only. Keys marked (list) may repeat.
+
+[general]
+# Dispatcher behaviour for a prefix that is not listed below: system runs the
+# plain `wine` from PATH without the managed environment; fail refuses.
+unknown_prefix = system
+# Starting DPI for prefixes vstbridge creates: 96 x 1.5 for 150% KDE scaling.
+# Existing prefixes keep their DPI unless their section sets dpi.
+new_prefix_dpi = 144
+# auto follows the desktop portal's color-scheme; dark, light or keep.
+theme = auto
+# (list) VST2 directories relative to drive_c, registered only when they exist.
+vst2 = Program Files/VSTPlugins
+vst2 = Program Files/Steinberg/VSTPlugins
+vst2 = Program Files/Common Files/VST2
+
+[bridge]
+# local: a yabridge build unpacked by `vstbridge bridge install`, linked to
+# ~/.local/share/yabridge. system: a packaged yabridge in /usr.
+source = local
+# Upstream master f1fc21e668e18a324915010912700727c8626619 (2026-11-01).
+pin = 5.1.1-59-gf1fc21e6
+
+[profile baseline]
+runner = /usr/bin/wine
+graphics = wined3d
+origin = Fedora wine package (built with the wine-staging patchset)
+
+[profile ni-modern]
+runner = /usr/bin/wine
+graphics = wined3d
+origin = Fedora wine package; prefix created and maintained by ni-wine
+
+[prefix fabfilter]
+path = ~/.vstbridge/prefixes/fabfilter
+profile = baseline
+
+[prefix kilohearts]
+path = ~/.vstbridge/prefixes/kilohearts
+profile = baseline
+# Kilohearts plugins leak file descriptors under esync (yabridge README).
+esync = off
+
+[prefix arturia]
+path = ~/.vstbridge/prefixes/arturia
+profile = baseline
+
+[prefix minimalaudio]
+path = ~/.vstbridge/prefixes/minimalaudio
+profile = baseline
+
+[prefix xln]
+path = ~/.vstbridge/prefixes/xln
+profile = baseline
+
+[prefix ni]
+path = ~/.wine-ni
+profile = ni-modern
+backend = ni-wine
+# Native Access scale factor, passed as NI_WINE_SCALE only after vstbridge
+# confirms that the installed ni-wine parses fractional values.
+ni_scale = 1.5
+vst2 = Program Files/Native Instruments/VSTPlugins 64 bit
+
+[prefix neuraldsp]
+path = ~/.vstbridge/prefixes/neuraldsp
+profile = baseline
+
+[prefix bogren]
+path = ~/.vstbridge/prefixes/bogren
+profile = baseline
+
+[yabridge]
+## (list) rule = <vst2|vst3|clap> | <glob> | <option> = <value>
+## Rules become a managed block in that format's yabridge.toml. Add one only
+## for a reproduced problem, for example:
+# rule = vst2 | FabFilter* | group = "fabfilter"
+# rule = vst3 | Example Plugin.vst3 | editor_disable_host_scaling = true
+
+[validation]
+## <product>/<host> = pending | reported <source> | observed <date> <note>
+# fabfilter-pro-q-4/bitwig = observed 2026-11-12 scan, audio, 150% editor
+
+## --- optional fallback profiles -------------------------------------------------
+## Enable one only for an identified need, and record the evidence.
+##
+## giang17 Wine (COPR patrickl/wine-staging-dev) for a reproduced rendering or
+## installer problem. Installing that COPR replaces Fedora's /usr/bin/wine for
+## every profile. Unpack the RPMs to their own directory instead: README.md
+## has the steps.
+# [profile giang17]
+# runner = ~/.local/share/vstbridge/runners/giang17/usr/bin/wine
+# graphics = giang17
+# origin = patrickl/wine-staging-dev wine-11.21-101, unpacked after review
+# evidence = <issue link or local reproduction>
+# font_helper = ~/.local/share/vstbridge/giang17/wine-font-setup.sh
+# font_helper_sha256 = <sha256 of the reviewed helper>
+##
+## Recovery pair: Wine 9.21 with official yabridge 5.1.1. yabridge is global,
+## so this also needs `vstbridge bridge use 5.1.1`.
+# [profile legacy]
+# runner = ~/.local/share/vstbridge/runners/wine-9.21/bin/wine
+# graphics = wined3d
+# bridge = 5.1.1
+# origin = <where the Wine 9.21 build came from>
+# evidence = <issue link or local reproduction>
+##
+## DXVK in its own prefixes, e.g. for bx_crispytuner (DXVK 3.1+).
+# [profile dxvk]
+# runner = /usr/bin/wine
+# graphics = dxvk
+# origin = Fedora wine; DXVK installed with `vstbridge tricks <prefix> dxvk`
+# evidence = <issue link or local reproduction>
+##
+## Native Access 1.14.1 only as an explicitly selected fallback.
+# [prefix ni-legacy]
+# path = ~/.vstbridge/prefixes/ni
+# profile = legacy
+# vst2 = Program Files/Native Instruments/VSTPlugins 64 bit
+##
+# [daw reaper]
+# exec = ~/opt/REAPER/reaper
+EOF
+}
+
+declare -A C=() SEEN=()
+PREFIXES=() PROFILES=() CONF_ERRORS=()
+
+conf_keys() {
+    case $1 in
+        general)    echo "unknown_prefix new_prefix_dpi theme vst2" ;;
+        bridge)     echo "source pin" ;;
+        profile)    echo "runner wineserver graphics origin evidence bridge env font_helper font_helper_sha256" ;;
+        prefix)     echo "path profile backend dpi theme esync vst2 settle ni_scale" ;;
+        daw)        echo "exec" ;;
+        yabridge)   echo "rule" ;;
+        validation) echo "*" ;;
+    esac
+}
+is_list_key() { [[ $1 == vst2 || $1 == env || $1 == rule ]]; }
+
+parse_conf() {  # parse_conf <label> < text
+    local label=$1 line n=0 kind name section key value
+    C=() SEEN=() PREFIXES=() PROFILES=() CONF_ERRORS=()
+    section=''
+    while IFS= read -r line || [[ -n $line ]]; do
+        n=$((n + 1))
+        line=${line#"${line%%[![:space:]]*}"}
+        line=${line%"${line##*[![:space:]]}"}
+        [[ -z $line || $line == \#* ]] && continue
+        if [[ $line =~ ^\[([a-z]+)([[:space:]]+([A-Za-z0-9._-]+))?\]$ ]]; then
+            kind=${BASH_REMATCH[1]} name=${BASH_REMATCH[3]}
+            case $kind in
+                general|bridge|yabridge|validation) [[ -z $name ]] || { CONF_ERRORS+=("$label:$n: [$kind] takes no name"); continue; } ;;
+                profile|prefix|daw) [[ -n $name ]] || { CONF_ERRORS+=("$label:$n: [$kind] needs a name"); continue; } ;;
+                *) CONF_ERRORS+=("$label:$n: unknown section [$kind]"); section=''; continue ;;
+            esac
+            section=$kind${name:+:$name}
+            if [[ -n ${SEEN[$section]:-} ]]; then CONF_ERRORS+=("$label:$n: duplicate section [$kind${name:+ $name}]"); fi
+            SEEN[$section]=1
+            [[ $kind == profile ]] && PROFILES+=("$name")
+            [[ $kind == prefix ]] && PREFIXES+=("$name")
+            continue
+        fi
+        if [[ ! $line =~ ^([A-Za-z0-9_./-]+)[[:space:]]*=[[:space:]]*(.*)$ ]]; then
+            CONF_ERRORS+=("$label:$n: expected 'key = value' or a [section]"); continue
+        fi
+        key=${BASH_REMATCH[1]} value=${BASH_REMATCH[2]}
+        [[ -n $section ]] || { CONF_ERRORS+=("$label:$n: '$key' outside a section"); continue; }
+        local allowed; allowed=" $(conf_keys "${section%%:*}") "
+        if [[ $allowed != " * " && $allowed != *" $key "* ]]; then
+            CONF_ERRORS+=("$label:$n: unknown key '$key' in [${section/:/ }]"); continue
+        fi
+        if [[ -n ${C["$section/$key"]+set} ]]; then
+            if is_list_key "$key"; then C["$section/$key"]+=$'\n'$value
+            else CONF_ERRORS+=("$label:$n: duplicate key '$key'"); fi
+        else
+            C["$section/$key"]=$value
+        fi
+    done
+    check_conf "$label"
+}
+
+cfg() {  # cfg <section> <key> [default]
+    if [[ -n ${C["$1/$2"]+set} ]]; then printf '%s\n' "${C["$1/$2"]}"
+    elif [[ $# -ge 3 ]]; then printf '%s\n' "$3"
+    else return 1; fi
+}
+
+expand() { local p=$1; [[ $p == \~ || $p == \~/* ]] && p=$HOME${p:1}; printf '%s\n' "$p"; }
+
+check_conf() {
+    local label=$1 p name v prof seen_paths=() path rule
+    for p in "${PROFILES[@]}"; do
+        v=$(cfg "profile:$p" runner '')
+        [[ $(expand "$v") == /* ]] || CONF_ERRORS+=("$label: profile $p: runner must be an absolute path")
+        case $(cfg "profile:$p" graphics wined3d) in wined3d|dxvk|giang17) ;; *) CONF_ERRORS+=("$label: profile $p: graphics must be wined3d, dxvk or giang17") ;; esac
+        if is_fallback "$p" && [[ -z $(cfg "profile:$p" evidence '') ]]; then
+            CONF_ERRORS+=("$label: profile $p is a fallback and needs 'evidence ='")
+        fi
+        while IFS= read -r v; do
+            [[ -z $v || $v =~ ^[A-Za-z_][A-Za-z0-9_]*=.*$ ]] || CONF_ERRORS+=("$label: profile $p: env must be NAME=value, got '$v'")
+            [[ $v == WINEPREFIX=* || $v == WINELOADER=* || $v == WINESERVER=* ]] && CONF_ERRORS+=("$label: profile $p: env must not set ${v%%=*}")
+        done < <(cfg "profile:$p" env '')
+    done
+    for name in "${PREFIXES[@]}"; do
+        path=$(cfg "prefix:$name" path '') prof=$(cfg "prefix:$name" profile '')
+        [[ -n $path ]] || CONF_ERRORS+=("$label: prefix $name: path is required")
+        [[ -n ${SEEN["profile:$prof"]:-} ]] || CONF_ERRORS+=("$label: prefix $name: unknown profile '$prof'")
+        case $(cfg "prefix:$name" backend vstbridge) in vstbridge|ni-wine) ;; *) CONF_ERRORS+=("$label: prefix $name: backend must be vstbridge or ni-wine") ;; esac
+        case $(cfg "prefix:$name" esync inherit) in inherit|off|on) ;; *) CONF_ERRORS+=("$label: prefix $name: esync must be inherit, off or on") ;; esac
+        valid_theme "$(cfg "prefix:$name" theme auto)" || CONF_ERRORS+=("$label: prefix $name: theme must be auto, dark, light or keep")
+        v=$(cfg "prefix:$name" dpi keep)
+        [[ $v == keep ]] || valid_dpi "$v" || CONF_ERRORS+=("$label: prefix $name: dpi must be keep or 72-480")
+        v=$(cfg "prefix:$name" settle 30)
+        [[ $v =~ ^[0-9]+$ ]] || CONF_ERRORS+=("$label: prefix $name: settle must be seconds")
+        [[ -n $path ]] || continue
+        path=$(realpath -m -- "$(expand "$path")")
+        for v in "${seen_paths[@]}"; do [[ $v == "$path" ]] && CONF_ERRORS+=("$label: prefix $name: path $path is used twice"); done
+        seen_paths+=("$path")
+    done
+    case $(cfg general unknown_prefix system) in system|fail) ;; *) CONF_ERRORS+=("$label: unknown_prefix must be system or fail") ;; esac
+    valid_dpi "$(cfg general new_prefix_dpi 144)" || CONF_ERRORS+=("$label: new_prefix_dpi must be 72-480")
+    valid_theme "$(cfg general theme auto)" || CONF_ERRORS+=("$label: theme must be auto, dark, light or keep")
+    case $(cfg bridge source local) in local|system) ;; *) CONF_ERRORS+=("$label: bridge source must be local or system") ;; esac
+    for name in "${!SEEN[@]}"; do
+        [[ $name == daw:* ]] || continue
+        [[ " ${DAWS[*]} " == *" ${name#daw:} "* ]] || CONF_ERRORS+=("$label: unknown DAW [${name/:/ }]")
+    done
+    while IFS= read -r rule; do
+        [[ -z $rule ]] && continue
+        parse_rule "$rule" >/dev/null || CONF_ERRORS+=("$label: invalid [yabridge] rule '$rule': $RULE_ERROR")
+    done < <(cfg yabridge rule '')
+    while IFS= read -r v; do
+        [[ $v == validation/* ]] || continue
+        [[ ${C[$v]} =~ ^(pending|reported|observed)($|[[:space:]]) ]] || CONF_ERRORS+=("$label: validation ${v#validation/}: value must start with pending, reported or observed")
+    done < <(printf '%s\n' "${!C[@]}")
+    ((${#PROFILES[@]})) || CONF_ERRORS+=("$label: at least one [profile] is required")
+}
+
+valid_dpi()   { [[ $1 =~ ^[0-9]+$ ]] && (($1 >= 72 && $1 <= 480)); }
+valid_theme() { [[ $1 == auto || $1 == dark || $1 == light || $1 == keep ]]; }
+is_fallback() { [[ $(cfg "profile:$1" graphics wined3d) != wined3d || -n $(cfg "profile:$1" bridge '') ]]; }
+
+RULE_ERROR=''
+parse_rule() {  # prints format<TAB>glob<TAB>option<TAB>value
+    local rule=$1 fmt glob opt key value
+    RULE_ERROR=''
+    IFS='|' read -r fmt glob opt <<< "$rule"
+    fmt=$(trim "$fmt") glob=$(trim "$glob") opt=$(trim "$opt")
+    [[ " ${FORMATS[*]} " == *" $fmt "* ]] || { RULE_ERROR="format must be vst2, vst3 or clap"; return 1; }
+    [[ -n $glob && $glob != *[\"\\]* ]] || { RULE_ERROR="glob must be non-empty without quotes or backslashes"; return 1; }
+    [[ $glob != *[{}]* ]] || { RULE_ERROR="yabridge globs do not support {a,b} alternation; use one rule per pattern"; return 1; }
+    [[ $opt =~ ^([a-z0-9_]+)[[:space:]]*=[[:space:]]*(.+)$ ]] || { RULE_ERROR="option must be 'name = value'"; return 1; }
+    key=${BASH_REMATCH[1]} value=${BASH_REMATCH[2]}
+    case $key in
+        editor_xembed|editor_coordinate_hack) RULE_ERROR="$key was removed from yabridge's development builds"; return 1 ;;
+    esac
+    [[ " ${YABRIDGE_OPTIONS[*]} " == *" $key "* ]] || { RULE_ERROR="unknown yabridge option '$key'"; return 1; }
+    [[ $value =~ ^(true|false|[0-9]+(\.[0-9]+)?|\"[^\"\\]*\")$ ]] || { RULE_ERROR="value must be true, false, a number or a \"string\""; return 1; }
+    printf '%s\t%s\t%s\t%s\n' "$fmt" "$glob" "$key" "$value"
+}
+
+trim() { local s=$1; s=${s#"${s%%[![:space:]]*}"}; printf '%s' "${s%"${s##*[![:space:]]}"}"; }
+
+load_conf() {
+    if [[ -f $CONF ]]; then parse_conf "$CONF" < "$CONF"
+    else parse_conf "built-in defaults" < <(default_conf); fi
+    if ((${#CONF_ERRORS[@]})); then
+        printf '%s\n' "${CONF_ERRORS[@]}" >&2
+        die "configuration has errors; fix them or run 'vstbridge config check'"
+    fi
+}
+
+px_path()        { expand "$(cfg "prefix:$1" path)"; }
+px_profile()     { cfg "prefix:$1" profile; }
+px_backend()     { cfg "prefix:$1" backend vstbridge; }
+profile_runner() { expand "$(cfg "profile:$1" runner)"; }
+profile_server() {
+    local s; s=$(cfg "profile:$1" wineserver '')
+    if [[ -n $s ]]; then expand "$s"; else printf '%s/wineserver\n' "$(dirname -- "$(profile_runner "$1")")"; fi
+}
+px_runner() { profile_runner "$(px_profile "$1")"; }
+px_server() { profile_server "$(px_profile "$1")"; }
+
+require_prefix() {
+    [[ -n ${1:-} && -n ${SEEN["prefix:$1"]:-} ]] && return 0
+    die "unknown prefix '${1:-}'; configured: ${PREFIXES[*]}"
+}
+
+# --- registry files (read-only) ----------------------------------------------------
+
+# Reads Wine's user.reg/system.reg directly so status and doctor never start Wine.
+# The files lag behind a running wineserver by up to a few seconds.
+reg_file() {  # reg_file <prefix-path> <HKCU\...|HKLM\...> -> file<TAB>subkey
+    case $2 in
+        HKCU\\*) printf '%s/user.reg\t%s\n' "$1" "${2#HKCU\\}" ;;
+        HKLM\\*) printf '%s/system.reg\t%s\n' "$1" "${2#HKLM\\}" ;;
+    esac
+}
+
+reg_get() {  # reg_get <prefix-path> <key> <value> -> decoded value (multi-sz: one entry per line)
+    local file sub raw
+    IFS=$'\t' read -r file sub < <(reg_file "$1" "$2")
+    [[ -f $file ]] || return 1
+    raw=$(REG_KEY=${sub//\\/\\\\} REG_NAME=$3 awk '
+        BEGIN { want = tolower(ENVIRON["REG_KEY"]); pfx = tolower("\"" ENVIRON["REG_NAME"] "\"=") }
+        /^\[/ { s = $0; sub(/^\[/, "", s); sub(/\][^]]*$/, "", s); hit = (tolower(s) == want); next }
+        hit && tolower(substr($0, 1, length(pfx))) == pfx { print substr($0, length(pfx) + 1); found = 1; exit }
+        END { exit !found }' "$file") || return 1
+    case $raw in
+        dword:*) printf '%d\n' "$((16#${raw#dword:}))" ;;
+        str\(7\):\"*|str\(2\):\"*|\"*)
+            raw=${raw#str(?):} raw=${raw#\"} raw=${raw%\"}
+            awk -v RS='\001' '{
+                out = ""; n = length($0)
+                for (i = 1; i <= n; i++) {
+                    c = substr($0, i, 1)
+                    if (c == "\\" && i < n) { c = substr($0, ++i, 1); if (c == "0") c = "\n" }
+                    out = out c
+                }
+                sub(/\n+$/, "", out); print out }' <<< "$raw" ;;
+        *) printf '%s\n' "$raw" ;;
+    esac
+}
+
+reg_overrides() {  # every DllOverrides entry, including per-application ones: section<TAB>dll=value
+    local file=$1/user.reg
+    [[ -f $file ]] || return 0
+    awk '
+        /^\[/ { s = $0; sub(/^\[/, "", s); sub(/\][^]]*$/, "", s); hit = (tolower(s) ~ /dlloverrides$/); next }
+        hit && /^"/ { line = $0; sub(/^"/, "", line); split(line, a, "\"=\""); v = a[2]; sub(/"$/, "", v); print s "\t" a[1] "=" v }' "$file"
+}
+
+prefix_arch() { awk -F= '/^#arch=/ { print $2; exit }' "$1/system.reg" 2>/dev/null; }
+
+# --- markers and prefix identity ---------------------------------------------------
+
+marker()     { printf '%s/.vstbridge-prefix\n' "$(px_path "$1")"; }
+marker_get() { awk -v k="$2" 'index($0, k "=") == 1 { print substr($0, length(k) + 2); exit }' "$(marker "$1")" 2>/dev/null; }
+
+write_marker() {
+    local name=$1 version
+    version=$(runner_version "$(px_runner "$name")") || version=unknown
+    printf 'profile=%s\nrunner=%s\nrunner_version=%s\nwritten=%s\n' \
+        "$(px_profile "$name")" "$(px_runner "$name")" "$version" "$(date +%F)" > "$(marker "$name")"
+}
+
+prefix_state() {  # missing | unmarked | mismatch | ready
+    local name=$1 px; px=$(px_path "$name")
+    [[ -f $px/system.reg ]] || { echo missing; return; }
+    [[ -f $(marker "$name") ]] || { echo unmarked; return; }
+    local recorded; recorded=$(marker_get "$name" runner)
+    if [[ -n $recorded && $(marker_get "$name" profile) == "$(px_profile "$name")" &&
+          $(realpath -m -- "$recorded") == $(realpath -m -- "$(px_runner "$name")") ]]; then
+        echo ready
+    else
+        echo mismatch
+    fi
+}
+
+require_ready() {
+    case $(prefix_state "$1") in
+        ready) ;;
+        missing) die "[$1] prefix $(px_path "$1") does not exist; run 'vstbridge setup'${2:+ or $2}" ;;
+        unmarked) die "[$1] $(px_path "$1") was not created by this vstbridge version; adopt it explicitly with 'vstbridge migrate $1'" ;;
+        mismatch) die "[$1] prefix was set up with profile '$(marker_get "$1" profile)' ($(marker_get "$1" runner)); vstbridge.conf now says '$(px_profile "$1")'. Changing a prefix's runner is a migration: 'vstbridge migrate $1 --plan'" ;;
+    esac
+}
+
+runner_version() { local v; v=$("$1" --version 2>/dev/null) && [[ -n $v ]] && printf '%s\n' "$v"; }
+
+# --- Wine dispatcher -----------------------------------------------------------------
+
+loader_text() {
+    local name prof e default_prof=${PROFILES[0]}
+    for prof in "${PROFILES[@]}"; do [[ $prof == baseline ]] && default_prof=baseline; done
+    cat <<'EOF'
+#!/usr/bin/env bash
+# Generated by vstbridge from vstbridge.conf; every vstbridge command regenerates it.
+# yabridge runs this as WINELOADER. It selects the Wine runner and wineserver
+# configured for the plugin's prefix, then replaces itself with that runner.
+EOF
+    printf 'unknown=%q\ndefault_runner=%q\n' "$(cfg general unknown_prefix system)" "$(profile_runner "$default_prof")"
+    cat <<'EOF'
+prefix=$(realpath -m -- "${WINEPREFIX:-$HOME/.wine}")
+runner='' server='' esync=inherit env=()
+case $prefix in
+EOF
+    for name in "${PREFIXES[@]}"; do
+        prof=$(px_profile "$name")
+        printf '    %q) runner=%q server=%q esync=%q env=(' \
+            "$(realpath -m -- "$(px_path "$name")")" "$(profile_runner "$prof")" "$(profile_server "$prof")" \
+            "$(cfg "prefix:$name" esync inherit)"
+        while IFS= read -r e; do [[ -n $e ]] && printf ' %q' "$e"; done < <(cfg "profile:$prof" env '')
+        printf ' ) ;;\n'
+    done
+    cat <<'EOF'
+esac
+if [[ $# -eq 1 && $1 == --version ]]; then exec "${runner:-$default_runner}" --version; fi
+if [[ -z $runner ]]; then
+    if [[ $unknown == fail ]]; then
+        printf 'vstbridge wineloader: %s is not a managed prefix (unknown_prefix = fail)\n' "$prefix" >&2
+        exit 127
+    fi
+    self=$(realpath -- "${BASH_SOURCE[0]}")
+    while IFS= read -r wine; do
+        [[ $(realpath -- "$wine") == "$self" ]] || exec "$wine" "$@"
+    done < <(type -ap wine)
+    echo 'vstbridge wineloader: no wine on PATH for an unmanaged prefix' >&2
+    exit 127
+fi
+if [[ -z ${DISPLAY:-} ]]; then
+    echo 'vstbridge wineloader: DISPLAY is not set; plugin editors need X11 through XWayland' >&2
+    exit 1
+fi
+unset WAYLAND_DISPLAY
+export WINESERVER=$server
+case $esync in off) export WINEESYNC=0 ;; on) export WINEESYNC=1 ;; esac
+for e in "${env[@]}"; do export "${e?}"; done
+exec "$runner" "$@"
+EOF
+}
+
+ensure_loader() {
+    local tmp
+    if ((PLAN)); then
+        cmp -s <(loader_text) "$LOADER" 2>/dev/null || plan "write the Wine dispatcher $LOADER"
+        return 0
+    fi
+    mkdir -p "$DATA" "$SHIMS" || return 1
+    tmp=$(mktemp "$DATA/.wineloader.XXXXXX") || return 1
+    loader_text > "$tmp" && chmod 755 "$tmp" || { rm -f "$tmp"; return 1; }
+    if cmp -s "$tmp" "$LOADER"; then rm -f "$tmp"; else mv -f "$tmp" "$LOADER" || return 1; fi
+    [[ -L $SHIMS/wine ]] || ln -sfn "$LOADER" "$SHIMS/wine" || return 1
+    if [[ ! -x $SHIMS/wineserver ]]; then
+        printf '#!/usr/bin/env bash\nexec "${WINESERVER:?vstbridge: WINESERVER is not set}" "$@"\n' > "$SHIMS/wineserver" &&
+            chmod 755 "$SHIMS/wineserver" || return 1
+    fi
+}
+
+WENV=()
+wine_env() {
+    WENV=(WINEPREFIX="$(px_path "$1")" WINE="$LOADER" WINELOADER="$LOADER" WINESERVER="$(px_server "$1")")
+    [[ -n ${WINEDEBUG+set} ]] || WENV+=(WINEDEBUG=-all)
+}
+declare -A STARTED=() BUSY=()
+wine_in() { local name=$1; shift; STARTED[$name]=1; wine_env "$name"; env "${WENV[@]}" "$LOADER" "$@"; }
+
+# wineserver writes user.reg and system.reg when it exits, about 3 s after its last
+# client. vstbridge reads those files directly, so wait for every prefix it used.
+flush_registry() {
+    local name rc
+    local -A pids=()
+    for name in "${!STARTED[@]}"; do
+        [[ -n ${BUSY[$name]:-} ]] && continue
+        timeout "$(cfg "prefix:$name" settle 15)" env WINEPREFIX="$(px_path "$name")" "$(px_server "$name")" -w 2>/dev/null &
+        pids[$name]=$!
+    done
+    for name in "${!pids[@]}"; do
+        rc=0; wait "${pids[$name]}" || rc=$?
+        ((rc == 124)) && note "[$name] Wine is still running there; it saves the registry changes when it exits"
+    done
+    return 0
+}
+reg_cmd() { local name=$1; shift; wine_in "$name" reg "$@" >/dev/null; }
+
+merge_overrides() {  # merge_overrides <existing WINEDLLOVERRIDES> <dll=mode>...: existing entries win
+    local result=$1 entry dll item
+    shift
+    for entry; do
+        dll=${entry%%=*}
+        local present=0
+        IFS=';' read -ra items <<< "$result"
+        for item in "${items[@]}"; do
+            IFS=',' read -ra dlls <<< "${item%%=*}"
+            for d in "${dlls[@]}"; do [[ ${d,,} == "${dll,,}" ]] && present=1; done
+        done
+        ((present)) || result=${result:+$result;}$entry
+    done
+    printf '%s\n' "$result"
+}
+
+op_timeout() { case $1 in install|init|migrate|iso) echo 120 ;; *) echo 30 ;; esac; }
+
+settle() {  # settle <prefix> <operation>: bounded wait for the prefix's wineserver to exit
+    local name=$1 op=$2 secs rc=0
+    secs=$(cfg "prefix:$name" settle "$(op_timeout "$op")")
+    timeout "$secs" env WINEPREFIX="$(px_path "$name")" "$(px_server "$name")" -w || rc=$?
+    unset 'STARTED[$name]'
+    if ((rc == 124)); then
+        BUSY[$name]=1
+        warn "[$name] $op: Wine processes in this prefix were still running after ${secs}s; vstbridge leaves them running."
+        note "Expected for persistent services (NTKDaemon, PACE) or a DAW using the prefix. Run 'vstbridge sync' after they finish installing."
+        return 0
+    fi
+    ((rc == 0)) || err "[$name] $op: '$(px_server "$name") -w' failed with status $rc"
+    return "$rc"
+}
+
+# --- fonts ---------------------------------------------------------------------------
+
+MANAGED_FONTS=("DejaVuSans.ttf|DejaVu Sans|dejavu-sans-fonts"
+               "DejaVuSans-Bold.ttf|DejaVu Sans Bold|dejavu-sans-fonts"
+               "NotoSansSymbols2-Regular.ttf|Noto Sans Symbols2|google-noto-sans-symbols-2-fonts")
+TAHOMA_LINKS=("DejaVuSans.ttf,DejaVu Sans" "NotoSansSymbols2-Regular.ttf,Noto Sans Symbols2")
+SUBSTITUTES=("Arial|arial.ttf|Liberation Sans" "Times New Roman|times.ttf|Liberation Serif" "Courier New|cour.ttf|Liberation Mono")
+FC_CACHE=''
+
+in_managed_prefix() {
+    local name px
+    for name in "${PREFIXES[@]}"; do px=$(realpath -m -- "$(px_path "$name")"); [[ $1 == "$px"/* ]] && return 0; done
+    return 1
+}
+
+host_font() {  # path of a host font file, preferring packaged copies outside any prefix
+    local f best=''
+    [[ -n $FC_CACHE ]] || FC_CACHE=$(fc-list --format '%{file}\n' 2>/dev/null) || FC_CACHE=''
+    while IFS= read -r f; do
+        [[ -n $f && ${f##*/} == "$1" ]] || continue
+        in_managed_prefix "$(realpath -m -- "$f")" && continue
+        [[ $f == /usr/* ]] && { printf '%s\n' "$f"; return 0; }
+        [[ -n $best ]] || best=$f
+    done <<< "$FC_CACHE"
+    [[ -n $best ]] && printf '%s\n' "$best"
+}
+
+prefix_font() {  # case-insensitive lookup in drive_c/windows/Fonts
+    local dir=$1/drive_c/windows/Fonts
+    [[ -d $dir ]] && find "$dir" -maxdepth 1 -iname "$2" -print -quit
+}
+
+copy_file() {  # copy_file <src> <dst>: no-op when dst already is or equals src
+    if [[ -e $2 ]] && { [[ $1 -ef $2 ]] || cmp -s -- "$1" "$2"; }; then return 0; fi
+    if ((PLAN)); then plan "copy $1 -> $2"; return 0; fi
+    cp -f -- "$1" "$2"
+}
+
+reg_add() {  # reg_add <prefix> <key> <value> <type> <data>
+    if ((PLAN)); then plan "[$1] set $2\\$3 = $5"; return 0; fi
+    reg_cmd "$1" add "$2" /v "$3" /t "$4" /d "$5" /f || { err "[$1] could not set $2\\$3"; return 1; }
+}
+
+fonts_repair() {  # copy missing managed fonts and restore missing registry entries
+    local name=$1 px fonts entry file family pkg src rc=0 current link missing value others
+    local -a wanted=()
+    px=$(px_path "$name")
+    [[ -f $px/system.reg ]] || return 0
+    if [[ $(cfg "profile:$(px_profile "$name")" graphics wined3d) == giang17 && -n $(cfg "profile:$(px_profile "$name")" font_helper '') ]]; then
+        giang17_fonts "$name"; return
+    fi
+    fonts=$px/drive_c/windows/Fonts
+    ((PLAN)) || mkdir -p "$fonts" || return 1
+    for entry in "${MANAGED_FONTS[@]}"; do
+        IFS='|' read -r file family pkg <<< "$entry"
+        src=$(host_font "$file")
+        if [[ -z $src ]]; then
+            err "[$name] host font $file not found; install $pkg (fonts are incomplete until then)"
+            rc=1; continue
+        fi
+        copy_file "$src" "$fonts/$file" || { err "[$name] could not copy $file"; rc=1; continue; }
+        reg_get "$px" "$HKLM_FONTS" "$family (TrueType)" >/dev/null || reg_add "$name" "$HKLM_FONTS" "$family (TrueType)" REG_SZ "$file" || rc=1
+    done
+    # Wine rewrites SystemLink when the code page changes, so check before writing,
+    # and keep whatever else the value lists after the managed entries.
+    current=$(reg_get "$px" "$HKLM_FONTLINK" Tahoma) || current=''
+    missing=0
+    for link in "${TAHOMA_LINKS[@]}"; do
+        [[ -n $(prefix_font "$px" "${link%%,*}") ]] || ((PLAN)) || continue
+        wanted+=("$link")
+        grep -qiF -- "${link%%,*}," <<< "$current" || missing=1
+    done
+    if ((missing)); then
+        others=$(grep -viF -e "${TAHOMA_LINKS[0]%%,*}," -e "${TAHOMA_LINKS[1]%%,*}," <<< "$current")
+        reg_add "$name" "$HKLM_FONTLINK" Tahoma REG_MULTI_SZ "$(join_multi "${wanted[@]}" "$others")" || rc=1
+    fi
+    link=${TAHOMA_LINKS[1]}
+    if [[ -n $(prefix_font "$px" "${link%%,*}") ]] || ((PLAN)); then
+        current=$(reg_get "$px" "$HKLM_FONTLINK" "DejaVu Sans") || current=''
+        if ! grep -qiF -- "${link%%,*}," <<< "$current"; then
+            reg_add "$name" "$HKLM_FONTLINK" "DejaVu Sans" REG_MULTI_SZ "$(join_multi "$link" "$current")" || rc=1
+        fi
+    fi
+    for entry in "${SUBSTITUTES[@]}"; do
+        IFS='|' read -r family file value <<< "$entry"
+        [[ -n $(prefix_font "$px" "$file") ]] && continue
+        reg_get "$px" "$HKLM_FONTSUBST" "$family" >/dev/null && continue
+        [[ -n $(host_font "${value// /}-Regular.ttf") ]] || continue
+        reg_add "$name" "$HKLM_FONTSUBST" "$family" REG_SZ "$value" || rc=1
+    done
+    return "$rc"
+}
+
+join_multi() {  # REG_MULTI_SZ data for `reg add`: arguments and lines joined by \0
+    local out='' item line
+    for item; do
+        while IFS= read -r line; do [[ -n $line ]] && out+=${out:+\\0}$line; done <<< "$item"
+    done
+    printf '%s' "$out"
+}
+
+giang17_fonts() {
+    local name=$1 prof helper sum want
+    prof=$(px_profile "$name")
+    helper=$(expand "$(cfg "profile:$prof" font_helper)") want=$(cfg "profile:$prof" font_helper_sha256 '')
+    [[ -f $helper ]] || { err "[$name] font helper $helper not found"; return 1; }
+    sum=$(sha256sum -- "$helper" | cut -d' ' -f1)
+    [[ $sum == "$want" ]] || { err "[$name] $helper does not match font_helper_sha256 (got $sum); review it and update the pin"; return 1; }
+    if ((PLAN)); then plan "[$name] run the pinned giang17 font helper (--no-mscore)"; return 0; fi
+    WINEPREFIX=$(px_path "$name") WINESERVER=$(px_server "$name") \
+        bash "$helper" --prefix "$(px_path "$name")" --wine "$(px_runner "$name")" --no-mscore
+}
+
+le32() { local v=$(($1 & 0xffffffff)); printf '%02x%02x%02x%02x' $((v & 255)) $((v >> 8 & 255)) $((v >> 16 & 255)) $((v >> 24 & 255)); }
+
+logfont_hex() {  # LOGFONTW (92 bytes): height, weight, face name
+    local hex i c face=$3
+    hex=$(le32 "$1")$(le32 0)$(le32 0)$(le32 0)$(le32 "$2")0000000100000000
+    for ((i = 0; i < 32; i++)); do
+        if ((i < ${#face})); then printf -v c '%02x00' "'${face:i:1}"; hex+="$c"; else hex+="0000"; fi
+    done
+    printf '%s\n' "$hex"
+}
+
+prefix_dpi() { reg_get "$1" "$HKCU_DESKTOP" LogPixels 2>/dev/null || echo 96; }
+
+fonts_import_segoe() {
+    local name=${1:-} dir=${2:-} uifont=0 px f n=0 base family dpi metric
+    [[ ${3:-} == --ui-font ]] && uifont=1
+    [[ -n $name && -d $dir ]] || die "usage: vstbridge fonts import-segoe <prefix> <directory with Windows fonts> [--ui-font]"
+    require_prefix "$name"; require_ready "$name"; ensure_loader || die "could not write the dispatcher"
+    px=$(px_path "$name")
+    while IFS= read -r -d '' f; do
+        base=${f##*/} base=${base,,}
+        case $base in
+            segoeui.ttf) family='Segoe UI' ;; segoeuib.ttf) family='Segoe UI Bold' ;;
+            segoeuii.ttf) family='Segoe UI Italic' ;; segoeuiz.ttf) family='Segoe UI Bold Italic' ;;
+            segoeuil.ttf) family='Segoe UI Light' ;; seguisb.ttf) family='Segoe UI Semibold' ;;
+            seguisym.ttf) family='Segoe UI Symbol' ;; *) family='' ;;
+        esac
+        copy_file "$f" "$px/drive_c/windows/Fonts/$base" || die "could not copy $f"
+        [[ -n $family ]] && { reg_add "$name" "$HKLM_FONTS" "$family (TrueType)" REG_SZ "$base" || die "font registration failed"; }
+        n=$((n + 1))
+    done < <(find "$dir" -maxdepth 1 -type f \( -iname 'segoeui*.ttf' -o -iname 'segui*.ttf' \) -print0)
+    ((n)) || die "no Segoe UI files (segoeui*.ttf, segui*.ttf) in $dir"
+    ok "[$name] imported $n Segoe UI file(s) from $dir"
+    ((uifont)) || return 0
+    [[ -n $(prefix_font "$px" segoeui.ttf) ]] || die "segoeui.ttf is required for --ui-font"
+    mkdir -p "$px/drive_c/vstbridge"
+    if [[ ! -f $px/drive_c/vstbridge/windowmetrics.reg ]]; then
+        wine_in "$name" reg export "$HKCU_DESKTOP\\WindowMetrics" 'C:\vstbridge\windowmetrics.reg' /y >/dev/null ||
+            die "[$name] could not back up WindowMetrics; nothing changed"
+    fi
+    dpi=$(prefix_dpi "$px")
+    for metric in "${WINDOW_METRICS[@]}"; do
+        reg_add "$name" "$HKCU_DESKTOP\\WindowMetrics" "$metric" REG_BINARY "$(logfont_hex $(( -(9 * dpi + 36) / 72 )) 400 'Segoe UI')" || die "WindowMetrics update failed"
+    done
+    ok "[$name] UI fonts set to Segoe UI 9 pt at $dpi DPI; 'vstbridge appearance restore $name' reverts them"
+}
+
+# --- appearance ------------------------------------------------------------------------
+
+PORTAL=''
+portal_scheme() {  # dark | light | none | unavailable
+    [[ -n $PORTAL ]] && { echo "$PORTAL"; return; }
+    local version out method=Read
+    local dest=(--session --dest org.freedesktop.portal.Desktop --object-path /org/freedesktop/portal/desktop)
+    if ! command -v gdbus >/dev/null; then PORTAL=unavailable; echo "$PORTAL"; return; fi
+    version=$(timeout 5 gdbus call "${dest[@]}" --method org.freedesktop.DBus.Properties.Get org.freedesktop.portal.Settings version 2>/dev/null) || version=''
+    [[ $version =~ uint32\ ([0-9]+) ]] && ((BASH_REMATCH[1] >= 2)) && method=ReadOne
+    if out=$(timeout 5 gdbus call "${dest[@]}" --method "org.freedesktop.portal.Settings.$method" org.freedesktop.appearance color-scheme 2>/dev/null) &&
+       [[ $out =~ uint32\ ([0-9]+) ]]; then
+        case ${BASH_REMATCH[1]} in 1) PORTAL=dark ;; 2) PORTAL=light ;; *) PORTAL=none ;; esac
+    else
+        PORTAL=unavailable
+    fi
+    echo "$PORTAL"
+}
+
+desired_theme() {  # dark | light | '' (leave unchanged)
+    local theme; theme=$(cfg "prefix:$1" theme "$(cfg general theme auto)")
+    case $theme in
+        dark|light) echo "$theme" ;;
+        auto) case $(portal_scheme) in dark|light) portal_scheme ;; *) echo '' ;; esac ;;
+        *) echo '' ;;
+    esac
+}
+
+appearance_backup() {  # record a value's original state once, before vstbridge first changes it
+    local name=$1 key=$2 value=$3 px file current
+    px=$(px_path "$name") file=$px/.vstbridge-appearance
+    # ENVIRON, not -v: awk -v would treat the backslashes in registry keys as escapes.
+    [[ -f $file ]] && K=$key V=$value awk -F'\t' '$1 == ENVIRON["K"] && $2 == ENVIRON["V"] { f = 1 } END { exit !f }' "$file" && return 0
+    current=$(reg_get "$px" "$key" "$value") || current=ABSENT
+    printf '%s\t%s\t%s\n' "$key" "$value" "$current" >> "$file"
+}
+
+set_managed_dword() {  # set_managed_dword <prefix> <key> <value> <data>
+    local name=$1 current
+    current=$(reg_get "$(px_path "$name")" "$2" "$3") || current=''
+    [[ $current == "$4" ]] && return 0
+    if ((PLAN)); then plan "[$name] set $2\\$3 = $4 (currently ${current:-unset})"; return 0; fi
+    appearance_backup "$name" "$2" "$3" || return 1
+    reg_add "$name" "$2" "$3" REG_DWORD "$4"
+}
+
+appearance_sync() {  # theme flags, and DPI when the prefix sets dpi explicitly
+    local name=$1 theme dpi light rc=0
+    [[ $(prefix_state "$name") == ready ]] || return 0
+    theme=$(desired_theme "$name")
+    if [[ -n $theme ]]; then
+        [[ $theme == light ]] && light=1 || light=0
+        set_managed_dword "$name" "$HKCU_PERSONALIZE" AppsUseLightTheme "$light" || rc=1
+        set_managed_dword "$name" "$HKCU_PERSONALIZE" SystemUsesLightTheme "$light" || rc=1
+    fi
+    dpi=$(cfg "prefix:$name" dpi keep)
+    [[ $dpi == keep ]] || set_managed_dword "$name" "$HKCU_DESKTOP" LogPixels "$dpi" || rc=1
+    return "$rc"
+}
+
+appearance_restore() {
+    local name=$1 px file key value orig rc=0 metric
+    px=$(px_path "$name") file=$px/.vstbridge-appearance
+    if [[ -f $px/drive_c/vstbridge/windowmetrics.reg ]]; then
+        for metric in "${WINDOW_METRICS[@]}"; do reg_cmd "$name" delete "$HKCU_DESKTOP\\WindowMetrics" /v "$metric" /f 2>/dev/null; done
+        if wine_in "$name" regedit /S 'C:\vstbridge\windowmetrics.reg' >/dev/null; then
+            mv -f "$px/drive_c/vstbridge/windowmetrics.reg" "$px/drive_c/vstbridge/windowmetrics.reg.restored"
+        else
+            err "[$name] could not re-import the WindowMetrics backup"; rc=1
+        fi
+    fi
+    [[ -f $file ]] || { ((rc)) || ok "[$name] no managed appearance values to restore"; return "$rc"; }
+    while IFS=$'\t' read -r key value orig; do
+        if [[ $orig == ABSENT ]]; then
+            reg_cmd "$name" delete "$key" /v "$value" /f || { err "[$name] could not remove $key\\$value"; rc=1; }
+        else
+            reg_add "$name" "$key" "$value" REG_DWORD "$orig" || rc=1
+        fi
+    done < "$file"
+    ((rc)) || { rm -f "$file"; ok "[$name] appearance restored; restart the DAW so plugin hosts pick it up"; }
+    return "$rc"
+}
+
+kde_xwayland_self_scaling() {  # true | false | unknown
+    local file=${XDG_CONFIG_HOME:-$HOME/.config}/kdeglobals value
+    [[ -f $file ]] || { echo true; return; }
+    value=$(awk -F= '/^\[/ { hit = ($0 == "[KScreen]"); next } hit && $1 == "XwaylandClientsScale" { print $2; exit }' "$file")
+    case ${value:-true} in true|false) echo "${value:-true}" ;; *) echo unknown ;; esac
+}
+
+appearance_status() {
+    local name=$1 px dpi theme style
+    px=$(px_path "$name")
+    printf '%s%s%s  %s\n' "$B" "$name" "$N" "$px"
+    [[ -f $px/system.reg ]] || { note "prefix does not exist"; return; }
+    dpi=$(reg_get "$px" "$HKCU_DESKTOP" LogPixels) || dpi="unset (Wine default 96)"
+    note "DPI: $dpi; policy: $(cfg "prefix:$name" dpi keep)"
+    theme=$(cfg "prefix:$name" theme "$(cfg general theme auto)")
+    note "theme policy: $theme -> $(desired_theme "$name" | sed 's/^$/unchanged/')"
+    note "AppsUseLightTheme=$(reg_get "$px" "$HKCU_PERSONALIZE" AppsUseLightTheme || echo unset) SystemUsesLightTheme=$(reg_get "$px" "$HKCU_PERSONALIZE" SystemUsesLightTheme || echo unset)"
+    style=$(reg_get "$px" 'HKCU\Software\Microsoft\Windows\CurrentVersion\ThemeManager' DllName) || style="unset"
+    note "visual style: $style (ThemeActive=$(reg_get "$px" 'HKCU\Software\Microsoft\Windows\CurrentVersion\ThemeManager' ThemeActive || echo unset)); not changed by vstbridge"
+    [[ -f $px/.vstbridge-appearance ]] && note "originals saved in $px/.vstbridge-appearance"
+    [[ -f $px/drive_c/vstbridge/windowmetrics.reg ]] && note "WindowMetrics changed by fonts import-segoe --ui-font (backup present)"
+    return 0
+}
+
+cmd_appearance() {
+    local sub=${1:-status} names=() name rc=0
+    shift || true
+    names=("$@"); ((${#names[@]})) || names=("${PREFIXES[@]}")
+    for name in "${names[@]}"; do require_prefix "$name"; done
+    portal_scheme >/dev/null
+    case $sub in
+        status)
+            printf 'desktop color-scheme (portal): %s\n' "$(portal_scheme)"
+            printf 'KDE legacy X11 apps "Apply scaling themselves": %s\n' "$(kde_xwayland_self_scaling)"
+            for name in "${names[@]}"; do appearance_status "$name"; done ;;
+        apply)
+            ensure_loader || die "could not write the dispatcher"
+            for name in "${names[@]}"; do
+                [[ $(prefix_state "$name") == ready ]] || { warn "[$name] skipped: prefix is $(prefix_state "$name")"; continue; }
+                appearance_sync "$name" || rc=1
+            done
+            ((rc)) || ok "appearance applied; restart running DAWs so new plugin hosts use it"
+            return "$rc" ;;
+        restore)
+            ensure_loader || die "could not write the dispatcher"
+            for name in "${names[@]}"; do
+                [[ $(prefix_state "$name") == ready ]] || continue
+                appearance_restore "$name" || rc=1
+            done
+            return "$rc" ;;
+        *) die "usage: vstbridge appearance status|apply|restore [prefix...]" ;;
+    esac
+}
+
+# --- bridge (yabridge build) ------------------------------------------------------------
+
+bridge_dir() {  # directory holding the active bridge's libraries and yabridgectl
+    if [[ $(cfg bridge source local) == system ]]; then
+        local ctl; ctl=$(type -P yabridgectl) || return 1
+        dirname -- "$(realpath -- "$ctl")"
+    else
+        [[ -x $YABRIDGE_HOME/yabridgectl ]] || return 1
+        realpath -- "$YABRIDGE_HOME"
+    fi
+}
+
+yabridgectl_path() {
+    if [[ $(cfg bridge source local) == system ]]; then type -P yabridgectl
+    else [[ -x $YABRIDGE_HOME/yabridgectl ]] && printf '%s\n' "$YABRIDGE_HOME/yabridgectl"; fi
+}
+
+bridge_id() {  # build id of the active bridge
+    local dir; dir=$(bridge_dir) || return 1
+    if [[ -f $dir/ORIGIN ]]; then awk -F': ' '$1 == "id" { print $2; exit }' "$dir/ORIGIN"
+    else lib_version "$dir/libyabridge-vst3.so" || lib_version "$(chainloader_lib vst3)"; fi
+}
+
+lib_version() { [[ -f $1 ]] && LC_ALL=C grep -aoE -m1 '[0-9]+\.[0-9]+\.[0-9]+-[0-9]+-g[0-9a-f]{7,}' "$1" | head -n1 | grep .; }
+
+chainloader_lib() {  # chainloader shipped by the active bridge
+    local dir d; dir=$(bridge_dir) || return 1
+    for d in "$dir" /usr/lib64 /usr/lib; do
+        [[ -f $d/libyabridge-chainloader-$1.so ]] && { printf '%s\n' "$d/libyabridge-chainloader-$1.so"; return 0; }
+    done
+    return 1
+}
+
+bridge_copies() {  # yabridge installations the chainloader or yabridgectl could pick up
+    local f d home
+    home=$(realpath -m -- "$YABRIDGE_HOME")
+    {
+        [[ -e $YABRIDGE_HOME/yabridge-host.exe ]] && printf 'local %s\n' "$home"
+        for d in /usr/lib /usr/lib64 /usr/bin; do
+            [[ -e $d/libyabridge-vst3.so || -e $d/yabridge-host.exe ]] && printf 'system /usr\n'
+        done
+        for d in /usr/local/lib /usr/local/lib64 /usr/local/bin; do
+            [[ -e $d/libyabridge-vst3.so || -e $d/yabridge-host.exe ]] && printf 'system /usr/local\n'
+        done
+        while IFS= read -r f; do
+            d=$(dirname -- "$(realpath -- "$f")")
+            [[ $d == "$home" || $d == /usr/bin || $d == /usr/local/bin ]] || printf 'path %s\n' "$d"
+        done < <(type -ap yabridge-host.exe)
+    } | awk '!seen[$0]++'
+}
+
+bridge_install() {
+    local origin='' id='' unpinned=0 archives=() found=() a tmp f file missing=() dest sum
+    while (($#)); do
+        case $1 in
+            --origin) origin=${2:?--origin needs text}; shift 2 ;;
+            --id) id=${2:?--id needs a value}; shift 2 ;;
+            --accept-unpinned) unpinned=1; shift ;;
+            *) archives+=("$1"); shift ;;
+        esac
+    done
+    ((${#archives[@]})) || die "usage: vstbridge bridge install <archive>... [--origin TEXT] [--id ID] [--accept-unpinned]"
+    tmp=$(mktemp -d) || die "mktemp failed"
+    # Expanded now: the EXIT trap runs after this function's locals are gone.
+    # shellcheck disable=SC2064
+    trap "rm -rf -- $(printf %q "$tmp")" EXIT
+    for a in "${archives[@]}"; do
+        [[ -f $a ]] || die "no such archive: $a"
+        case $a in
+            *.zip) unzip -q -o -d "$tmp/x" "$a" || die "could not unpack $a" ;;
+            *.tar.gz|*.tgz) mkdir -p "$tmp/x" && tar -xzf "$a" -C "$tmp/x" || die "could not unpack $a" ;;
+            *) die "unsupported archive $a (expected .zip, .tar.gz)" ;;
+        esac
+    done
+    while IFS= read -r -d '' f; do tar -xzf "$f" -C "$tmp/x" || die "could not unpack nested $f"; done \
+        < <(find "$tmp/x" -name '*.tar.gz' -print0)
+    mkdir -p "$tmp/bridge"
+    for file in "${BRIDGE_FILES[@]}" yabridge-host-32.exe yabridge-host-32.exe.so; do
+        mapfile -t found < <(find "$tmp/x" -type f -name "$file")
+        if ((${#found[@]} == 0)); then
+            [[ $file == *-32.* ]] || missing+=("$file"); continue
+        fi
+        ((${#found[@]} == 1)) || die "the archives contain ${#found[@]} copies of $file; install one build at a time"
+        cp -- "${found[0]}" "$tmp/bridge/$file" || die "copy failed"
+    done
+    ((${#missing[@]} == 0)) || die "incomplete yabridge build, missing: ${missing[*]} (a development build ships yabridge and yabridgectl as separate artifacts; pass both)"
+    chmod 755 "$tmp/bridge/yabridgectl" "$tmp/bridge/yabridge-host.exe"
+    [[ -n $id ]] || id=$(lib_version "$tmp/bridge/libyabridge-vst3.so") ||
+        die "could not read the build's version from libyabridge-vst3.so; pass --id"
+    if [[ $id != "$(cfg bridge pin '')" ]] && ((!unpinned)); then
+        die "build $id is not the pinned revision $(cfg bridge pin ''). Review it, then rerun with --accept-unpinned and --origin, and update 'pin' in vstbridge.conf"
+    fi
+    dest=$BRIDGES/$id
+    [[ -e $dest ]] && die "$dest already exists; vstbridge does not overwrite installed builds"
+    {
+        printf 'id: %s\norigin: %s\ninstalled: %s\n' "$id" "${origin:-unrecorded}" "$(date +%F)"
+        for a in "${archives[@]}"; do sum=$(sha256sum -- "$a" | cut -d' ' -f1); printf 'archive: %s sha256=%s\n' "${a##*/}" "$sum"; done
+    } > "$tmp/bridge/ORIGIN"
+    mkdir -p "$BRIDGES" && mv -- "$tmp/bridge" "$dest" || die "could not install to $dest"
+    ok "installed yabridge $id in $dest"
+    note "activate it with: vstbridge bridge use $id"
+}
+
+bridge_use() {
+    local id=${1:-} backup
+    [[ -n $id && -d $BRIDGES/$id ]] || die "usage: vstbridge bridge use <id>; installed: $(ls -1 "$BRIDGES" 2>/dev/null | paste -sd' ')"
+    [[ $(cfg bridge source local) == local ]] || die "[bridge] source = system; switch it to local in vstbridge.conf first"
+    if [[ -e $YABRIDGE_HOME && ! -L $YABRIDGE_HOME ]]; then
+        backup=$BRIDGES/preexisting-$(date +%Y%m%d-%H%M%S)
+        mv -- "$YABRIDGE_HOME" "$backup" || die "could not move the existing $YABRIDGE_HOME aside"
+        warn "moved the existing $YABRIDGE_HOME to $backup"
+    fi
+    mkdir -p "$(dirname -- "$YABRIDGE_HOME")" "$STATE"
+    [[ -L $YABRIDGE_HOME ]] && printf '%s %s\n' "$(date +%FT%T)" "$(readlink -- "$YABRIDGE_HOME")" >> "$STATE/bridge-history"
+    ln -sfn "$BRIDGES/$id" "$YABRIDGE_HOME" || die "could not link $YABRIDGE_HOME"
+    ok "active yabridge build: $id (previous builds stay in $BRIDGES; switch back with 'vstbridge bridge use <id>')"
+    ensure_loader || die "could not write the dispatcher"
+    bridge_sync
+}
+
+bridge_status() {
+    local id dir copies
+    printf 'source: %s, pin: %s\n' "$(cfg bridge source local)" "$(cfg bridge pin '')"
+    if dir=$(bridge_dir); then
+        id=$(bridge_id) || id=unknown
+        printf 'active: %s in %s\n' "$id" "$dir"
+        [[ -f $dir/ORIGIN ]] && sed 's/^/  /' "$dir/ORIGIN"
+    else
+        printf 'active: none\n'
+        bridge_instructions
+    fi
+    mapfile -t copies < <(bridge_copies)
+    ((${#copies[@]} <= 1)) || { warn "several yabridge installations are visible:"; printf '  %s\n' "${copies[@]}" >&2; }
+}
+
+bridge_instructions() {
+    local pin; pin=$(cfg bridge pin '')
+    note "Download both CI artifacts of the build for master ${pin##*-g} (yabridge-$pin and yabridgectl-$pin) from"
+    note "https://github.com/robbert-vdh/yabridge/actions/workflows/build.yml?query=branch%3Amaster, then:"
+    note "vstbridge bridge install <yabridge archive> <yabridgectl archive> --origin 'upstream CI, master ${pin##*-g}'"
+    note "vstbridge bridge use $pin"
+}
+
+cmd_bridge() {
+    local sub=${1:-status}; shift || true
+    case $sub in
+        status) bridge_status ;;
+        list)
+            ls -1 "$BRIDGES" 2>/dev/null
+            if [[ -L $YABRIDGE_HOME ]]; then printf 'active -> %s\n' "$(readlink -- "$YABRIDGE_HOME")"; fi ;;
+        install) bridge_install "$@" ;;
+        use) bridge_use "$@" ;;
+        *) die "usage: vstbridge bridge status|list|install|use" ;;
+    esac
+}
+
+# --- plugin directories and yabridge.toml --------------------------------------------------
+
+ci_path() {  # ci_path <base> <relative path>: resolve each component case-insensitively
+    local base=$1 part m parts
+    IFS=/ read -ra parts <<< "$2"
+    for part in "${parts[@]}"; do
+        [[ -z $part ]] && continue
+        if [[ -e $base/$part ]]; then base+=/$part; continue; fi
+        m=$(find "$base" -mindepth 1 -maxdepth 1 -iname "$part" -print -quit 2>/dev/null)
+        [[ -n $m ]] || return 1
+        base=$m
+    done
+    printf '%s\n' "$base"
+}
+
+plugin_dirs() {  # prefix<TAB>format<TAB>directory, for directories that exist
+    local name px rel dir
+    for name in "${PREFIXES[@]}"; do
+        px=$(px_path "$name")
+        [[ -d $px/drive_c ]] || continue
+        dir=$(ci_path "$px/drive_c" "Program Files/Common Files/VST3") && printf '%s\tvst3\t%s\n' "$name" "$dir"
+        dir=$(ci_path "$px/drive_c" "Program Files/Common Files/CLAP") && printf '%s\tclap\t%s\n' "$name" "$dir"
+        while IFS= read -r rel; do
+            [[ -n $rel ]] || continue
+            dir=$(ci_path "$px/drive_c" "$rel") && printf '%s\tvst2\t%s\n' "$name" "$dir"
+        done < <(cfg general vst2 ''; cfg "prefix:$name" vst2 '')
+    done | awk -F'\t' '!seen[$3]++'
+}
+
+plugin_entries() {  # plugin_entries <format> <dir>: NUL-separated plugin paths, bundles once
+    case $1 in
+        vst3) find "$2" -iname '*.vst3' -prune -print0 2>/dev/null ;;
+        clap) find "$2" -iname '*.clap' -prune -print0 2>/dev/null ;;
+        vst2) find "$2" \( -iname '*.vst3' -o -iname '*.clap' \) -prune -o -iname '*.dll' -print0 2>/dev/null ;;
+    esac
+}
+
+# yabridge locks its shared audio buffers into memory and runs its audio threads with
+# realtime priority; both need limits that Fedora gives only to the pipewire group.
+RT_LIMITS=/etc/security/limits.d/95-audio.conf
+RT_FIX="printf '@audio - memlock unlimited\\n@audio - rtprio 95\\n' | sudo tee $RT_LIMITS && sudo usermod -aG audio \"\$USER\", then reboot"
+rt_limits() {  # prints the missing limits; true when both are in place
+    local memlock rtprio missing=()
+    memlock=$(ulimit -l) rtprio=$(ulimit -r)
+    [[ $memlock == unlimited ]] || missing+=("memlock ${memlock} KiB")
+    [[ $rtprio != 0 ]] || missing+=("rtprio 0")
+    ((${#missing[@]})) || return 0
+    local out
+    printf -v out '%s, ' "${missing[@]}"
+    printf '%s\n' "${out%, }"
+    return 1
+}
+
+non_ascii() { LC_ALL=C grep -q '[^ -~]' <<< "$1"; }
+
+count_plugins() {  # count_plugins <format> <dir>; VST3 bundles count once, not their contents
+    case $1 in
+        vst3) find "$2" -iname '*.vst3' -prune -print 2>/dev/null | wc -l ;;
+        clap) find "$2" -iname '*.clap' -prune -print 2>/dev/null | wc -l ;;
+        vst2) find "$2" \( -iname '*.vst3' -o -iname '*.clap' \) -prune -o \( -iname '*.dll' -o -iname '*.so' \) -print 2>/dev/null | wc -l ;;
+    esac
+}
+
+bridged_dir() { case $1 in vst2) echo "$HOME/.vst/yabridge" ;; vst3) echo "$HOME/.vst3/yabridge" ;; clap) echo "$HOME/.clap/yabridge" ;; esac; }
+
+register_dirs() {
+    local ctl=$1 listed name fmt dir rc=0
+    listed=$("$ctl" list 2>&1) || { err "'yabridgectl list' failed: $listed"; return 1; }
+    while IFS=$'\t' read -r name fmt dir; do
+        grep -Fxq -- "$dir" <<< "$(sed 's/^[[:space:]]*//;s/[[:space:]]*$//' <<< "$listed")" && continue
+        if ((PLAN)); then plan "[$name] register $fmt directory $dir"; continue; fi
+        "$ctl" add "$dir" || { err "[$name] 'yabridgectl add $dir' failed"; rc=1; }
+    done < <(plugin_dirs)
+    return "$rc"
+}
+
+toml_template() {
+    local label; case $1 in vst2) label=VST2 ;; vst3) label=VST3 ;; clap) label=CLAP ;; esac
+    cat <<EOF
+# yabridge options for the bridged $label plugins below this directory.
+# vstbridge replaces only the block between its markers; the rest is yours.
+#
+# Section names are case-sensitive glob patterns matched against the bridged
+# file's path relative to this file. \`*\` does not match \`/\`, and a pattern
+# that matches a leading directory applies to everything inside it. yabridge
+# uses only the first matching section, so put specific patterns first. Brace
+# alternation such as {a,b} is not supported; write one section per pattern.
+# Options: https://github.com/robbert-vdh/yabridge#compatibility-options
+#
+# Opt-in examples. Each is valid TOML when uncommented; enable one only after
+# reproducing the problem it addresses, preferably as a [yabridge] rule in
+# vstbridge.conf so the choice is recorded with the rest of the setup.
+#
+# Editor drawn at twice the intended size or cropped at 150% scaling:
+# ["Example Plugin.$( [[ $1 == vst2 ]] && echo so || echo "$1")"]
+# editor_disable_host_scaling = true
+#
+# REAPER only, when dragging audio or MIDI out of the editor does nothing:
+# ["Example Drum Plugin.$( [[ $1 == vst2 ]] && echo so || echo "$1")"]
+# editor_force_dnd = true
+EOF
+    [[ $1 == vst2 ]] && cat <<'EOF'
+#
+# One shared Wine process for FabFilter VST2 instances (Pro-Q instance list):
+# ["FabFilter*"]
+# group = "fabfilter"
+EOF
+}
+
+toml_block() {  # managed sections for one format, skipping keys the user already defines
+    local fmt=$1 user=$2 line rfmt glob key value
+    declare -A tables=() order=()
+    local globs=()
+    while IFS= read -r line; do
+        [[ -n $line ]] || continue
+        IFS=$'\t' read -r rfmt glob key value < <(parse_rule "$line") || continue
+        [[ $rfmt == "$fmt" ]] || continue
+        if grep -Eq "^[[:space:]]*\[[[:space:]]*\"?$(sed 's#[][\.*^$+?(){}|/]#\\&#g' <<< "$glob")\"?[[:space:]]*\]" <<< "$user"; then
+            warn "$fmt yabridge.toml already has a section for \"$glob\"; the vstbridge rule for it was not added"
+            continue
+        fi
+        [[ -n ${order[$glob]:-} ]] || { globs+=("$glob"); order[$glob]=1; }
+        tables[$glob]+="$key = $value"$'\n'
+    done < <(cfg yabridge rule '')
+    printf '%s\n' "$MARK_BEGIN"
+    for glob in "${globs[@]}"; do
+        printf '["%s"]\n%s' "$glob" "$(printf '%s' "${tables[$glob]}" | awk '!seen[$1]++')"
+        printf '\n'
+    done
+    printf '%s\n' "$MARK_END"
+}
+
+toml_update() {  # toml_update <format>: rewrite only the managed block of that format's yabridge.toml
+    local fmt=$1 dir file user new backup
+    dir=$(bridged_dir "$fmt") file=$dir/yabridge.toml
+    if [[ -f $file && $(sha256sum -- "$file" | cut -d' ' -f1) == "$V1_TOML_SHA256" ]]; then
+        backup=$file.vstbridge-v1
+        if ((PLAN)); then plan "replace the unmodified v1 template $file (backup $backup)"
+        else cp -f -- "$file" "$backup" && rm -f -- "$file" || return 1; fi
+    fi
+    if [[ -f $file ]]; then
+        user=$(awk -v b="$MARK_BEGIN" -v e="$MARK_END" '$0 == b { skip = 1; next } $0 == e { skip = 0; next } !skip' "$file")
+        new=$(awk -v b="$MARK_BEGIN" -v e="$MARK_END" -v block="$(toml_block "$fmt" "$user")" '
+            $0 == b { print block; skip = 1; done = 1; next } $0 == e { skip = 0; next } !skip { print }
+            END { if (!done) { print ""; print block } }' "$file")
+    else
+        user=$(toml_template "$fmt")
+        new=$(printf '%s\n\n%s' "$user" "$(toml_block "$fmt" "$user")")
+    fi
+    [[ -f $file ]] && [[ $new == "$(cat -- "$file")" ]] && return 0
+    if ((PLAN)); then plan "update the managed block in $file"; return 0; fi
+    mkdir -p "$dir" && printf '%s\n' "$new" > "$file"
+}
+
+toml_valid() {  # 0 valid, 1 invalid, 2 unknown (no TOML parser)
+    python3 -c 'import tomllib' 2>/dev/null || return 2
+    python3 -c 'import sys, tomllib; tomllib.load(open(sys.argv[1], "rb"))' "$1" 2>/dev/null
+}
+
+bridge_sync() {  # 0 synced, 1 failed, 2 no active bridge yet
+    local ctl rc=0 fmt
+    ctl=$(yabridgectl_path) || return 2
+    register_dirs "$ctl" || rc=1
+    for fmt in "${FORMATS[@]}"; do toml_update "$fmt" || { err "could not update $(bridged_dir "$fmt")/yabridge.toml"; rc=1; }; done
+    if ((PLAN)); then plan "yabridgectl sync"; return "$rc"; fi
+    # yabridgectl verifies the build by starting yabridge-host.exe in $WINEPREFIX, which
+    # defaults to ~/.wine and would create it. Verify inside a managed prefix instead.
+    local name verify=()
+    for name in "${PREFIXES[@]}"; do
+        [[ $(prefix_state "$name") == ready ]] && { verify=(WINEPREFIX="$(px_path "$name")"); break; }
+    done
+    if ((${#verify[@]})); then
+        env "${verify[@]}" WINELOADER="$LOADER" "$ctl" sync || { err "'yabridgectl sync' failed"; rc=1; }
+    else
+        WINELOADER=$LOADER "$ctl" sync --no-verify || { err "'yabridgectl sync' failed"; rc=1; }
+    fi
+    return "$rc"
+}
+
+cmd_sync() {
+    ensure_loader || die "could not write the dispatcher"
+    local rc=0 ctl
+    bridge_sync
+    case $? in
+        0) ;;
+        2) err "no active yabridge build"; bridge_instructions; rc=1 ;;
+        *) rc=1 ;;
+    esac
+    if ctl=$(yabridgectl_path); then WINELOADER=$LOADER "$ctl" status || { err "'yabridgectl status' failed"; rc=1; }; fi
+    return "$rc"
+}
+
+# --- installers, programs, finalization --------------------------------------------------
+
+sync_after() {  # sync after a program ran; a missing bridge is a note, not a failure
+    bridge_sync
+    case $? in
+        0) return 0 ;;
+        2) note "plugin registration skipped: no active yabridge build yet ('vstbridge bridge use' registers everything)"; return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+program_log() {  # path of a new log file for one program run
+    mkdir -p "$STATE/logs" && printf '%s/logs/%s-%s-%s-%s.log\n' "$STATE" "$1" "$2" "$(date +%Y%m%d-%H%M%S)" "$$"
+}
+
+run_logged() {  # run_logged <logfile> <command...>: output to the log unless VSTBRIDGE_VERBOSE is set
+    local logfile=$1 rc=0
+    shift
+    if [[ -n ${VSTBRIDGE_VERBOSE:-} ]]; then "$@" || rc=$?
+    else "$@" > "$logfile" 2>&1 || rc=$?; fi
+    if ((rc)) && [[ -s $logfile ]]; then
+        printf '  %slast lines of %s:%s\n' "$D" "$logfile" "$N" >&2
+        tail -n 15 -- "$logfile" | sed 's/^/    /' >&2
+    fi
+    return "$rc"
+}
+
+finalize() {  # finalize <prefix> <operation> <status> <cancelled>
+    local name=$1 op=$2 rc=$3 cancelled=$4 failed=()
+    settle "$name" "$op" || failed+=("wineserver wait")
+    fonts_repair "$name" || failed+=("font repair")
+    sync_after || failed+=("yabridge sync")
+    if ((cancelled)); then err "[$name] $op was cancelled (status $rc)"
+    elif ((rc)); then err "[$name] $op exited with status $rc"; fi
+    ((${#failed[@]})) && err "[$name] finalization also failed: ${failed[*]}"
+    ((cancelled)) && return 130
+    ((rc)) && return "$rc"
+    ((${#failed[@]})) && return 3
+    ok "[$name] $op finished"
+}
+
+run_program() {  # run_program <operation> <prefix> <program> [args...]
+    local op=$1 name=${2:-} target=${3:-} rc=0 cancelled=0
+    [[ -n $name && -n $target ]] || die "usage: vstbridge $op <prefix> <program> [args...]"
+    shift 3
+    require_prefix "$name"
+    [[ $op != install || -f $target ]] || die "no such file: $target"
+    if [[ $(px_backend "$name") == ni-wine && ${target##*/} == Native\ Access*.exe ]]; then
+        die "start Native Access through the helper: vstbridge ni native-access"
+    fi
+    require_ready "$name"
+    ensure_loader || die "could not write the dispatcher"
+    portal_scheme >/dev/null
+    appearance_sync "$name" || warn "[$name] appearance sync failed; continuing"
+    local logfile; logfile=$(program_log "$name" "$op") || die "could not create a log in $STATE/logs"
+    log "[$name] $op: $target"
+    [[ -n ${VSTBRIDGE_VERBOSE:-} ]] || note "Wine output: $logfile"
+    trap 'cancelled=1' INT
+    run_logged "$logfile" wine_in "$name" "$target" "$@" || rc=$?
+    trap - INT
+    finalize "$name" "$op" "$rc" "$cancelled"
+}
+
+cmd_winecfg() {
+    require_prefix "${1:-}"; require_ready "$1"; ensure_loader || die "could not write the dispatcher"
+    local logfile; logfile=$(program_log "$1" winecfg) || die "could not create a log"
+    run_logged "$logfile" wine_in "$1" winecfg
+}
+
+cmd_tricks() {
+    local name=${1:-} graphics verb rc=0
+    require_prefix "$name"; shift
+    (($#)) || die "usage: vstbridge tricks <prefix> <verbs...>"
+    require_ready "$name"
+    graphics=$(cfg "profile:$(px_profile "$name")" graphics wined3d)
+    for verb; do
+        if [[ $verb == dxvk* || $verb == vkd3d* ]] && [[ $graphics != dxvk ]]; then
+            [[ $graphics == giang17 ]] && die "refusing $verb: DXVK replaces dxgi/d3d11, which carry the giang17 DirectComposition fixes"
+            die "refusing $verb: profile '$(px_profile "$name")' is not a dxvk profile. Use a separate prefix with a [profile] graphics = dxvk"
+        fi
+    done
+    ensure_loader || die "could not write the dispatcher"
+    wine_env "$name"
+    local logfile; logfile=$(program_log "$name" tricks) || die "could not create a log"
+    log "[$name] winetricks $*"
+    [[ -n ${VSTBRIDGE_VERBOSE:-} ]] || note "output: $logfile"
+    run_logged "$logfile" env "${WENV[@]}" winetricks "$@" || rc=$?
+    settle "$name" tricks || true
+    return "$rc"
+}
+
+cmd_shell() {
+    local name=${1:-}
+    require_prefix "$name"; require_ready "$name"; ensure_loader || die "could not write the dispatcher"
+    wine_env "$name"
+    log "shell for '$name': wine, wineserver and winetricks use its profile; 'exit' to leave"
+    exec env "${WENV[@]}" PATH="$SHIMS:$PATH" VSTBRIDGE_PREFIX="$name" "${SHELL:-/bin/bash}"
+}
+
+cmd_fix_fonts() {
+    local names=() ready=() name rc=0
+    for name; do [[ $name == --plan ]] && PLAN=1 || names+=("$name"); done
+    ((${#names[@]})) || names=("${PREFIXES[@]}")
+    for name in "${names[@]}"; do
+        require_prefix "$name"
+        [[ $(prefix_state "$name") == ready ]] && ready+=("$name")
+    done
+    ((${#ready[@]})) || { ok "no managed prefixes exist yet; nothing to repair"; return 0; }
+    ensure_loader || die "could not write the dispatcher"
+    for name in "${ready[@]}"; do fonts_repair "$name" || rc=1; done
+    ((rc || PLAN)) || ok "fonts are in place"
+    return "$rc"
+}
+
+cmd_fonts() {
+    case ${1:-} in
+        import-segoe) shift; fonts_import_segoe "$@" ;;
+        *) die "usage: vstbridge fonts import-segoe <prefix> <directory> [--ui-font]" ;;
+    esac
+}
+
+# --- graphics reset -------------------------------------------------------------------------
+
+graphics_reset() {  # move replaced D3D/DXGI DLLs aside, drop native overrides, restore Wine's own
+    local name=$1 px dir dll f kind sec line moved=0 dropped=0 stamp
+    px=$(px_path "$name") stamp=$(date +%Y%m%d-%H%M%S)
+    if [[ $(cfg "profile:$(px_profile "$name")" graphics wined3d) == dxvk ]]; then
+        err "[$name] uses a dxvk profile; nothing to reset"; return 1
+    fi
+    if [[ -n $(system_dxvk) ]]; then
+        err "the system still selects DXVK ($(system_dxvk | paste -sd' ')); run: sudo dnf remove 'wine-dxvk*'"
+        return 1
+    fi
+    for dir in system32 syswow64; do
+        for dll in "${GRAPHICS_DLLS[@]}"; do
+            f=$px/drive_c/windows/$dir/$dll.dll
+            kind=$(dll_kind "$f")
+            [[ $kind == dxvk || $kind == native ]] || continue
+            if ((PLAN)); then plan "[$name] rename $dir/$dll.dll ($kind) to $dll.dll.vstbridge-$stamp"; continue; fi
+            mv -- "$f" "$f.vstbridge-$stamp" || { err "[$name] could not rename $f"; return 1; }
+            moved=$((moved + 1))
+        done
+    done
+    while IFS=$'\t' read -r sec line; do
+        [[ ${sec,,} == 'software\\wine\\dlloverrides' ]] || continue
+        dll=${line%%=*} dll=${dll#\*}
+        [[ " ${GRAPHICS_DLLS[*]} " == *" ${dll,,} "* && ${line#*=} == n* ]] || continue
+        if ((PLAN)); then plan "[$name] remove the DllOverrides entry ${line%%=*}=${line#*=}"; continue; fi
+        printf '%s\t%s\n' "${line%%=*}" "${line#*=}" >> "$px/.vstbridge-graphics-overrides"
+        reg_cmd "$name" delete "$HKCU_OVERRIDES" /v "${line%%=*}" /f || { err "[$name] could not remove override ${line%%=*}"; return 1; }
+        dropped=$((dropped + 1))
+    done < <(reg_overrides "$px")
+    while IFS=$'\t' read -r sec line; do
+        [[ ${sec,,} == *'appdefaults'* ]] || continue
+        dll=${line%%=*} dll=${dll#\*}
+        [[ " ${GRAPHICS_DLLS[*]} " == *" ${dll,,} "* ]] && warn "[$name] per-application override left unchanged: ${sec//\\\\/\\} $line"
+    done < <(reg_overrides "$px")
+    if ((PLAN)); then plan "[$name] wineboot -u to reinstall Wine's own DLLs"; return 0; fi
+    run_logged "$(program_log "$name" graphics-reset)" wine_in "$name" wineboot -u || { err "[$name] wineboot -u failed"; return 1; }
+    settle "$name" migrate
+    ok "[$name] renamed $moved DLL(s) to *.vstbridge-$stamp, removed $dropped override(s); Wine's own D3D/DXGI restored"
+    ((moved)) && note "undo: rename the *.vstbridge-$stamp files back"
+    ((dropped)) && note "removed overrides are listed in $px/.vstbridge-graphics-overrides"
+    return 0
+}
+
+cmd_graphics() {
+    local sub=${1:-} names=() arg name rc=0
+    shift || true
+    [[ $sub == reset ]] || die "usage: vstbridge graphics reset <prefix...> [--plan]"
+    for arg; do [[ $arg == --plan ]] && PLAN=1 || names+=("$arg"); done
+    ((${#names[@]})) || die "usage: vstbridge graphics reset <prefix...> [--plan]"
+    for name in "${names[@]}"; do require_prefix "$name"; require_ready "$name"; done
+    ensure_loader || die "could not write the dispatcher"
+    for name in "${names[@]}"; do graphics_reset "$name" || rc=1; done
+    return "$rc"
+}
+
+# --- prefixes: creation and migration -------------------------------------------------------
+
+create_prefix() {
+    local name=$1 px dpi log
+    px=$(px_path "$name")
+    dpi=$(cfg "prefix:$name" dpi '')
+    [[ -z $dpi ]] && dpi=$(cfg general new_prefix_dpi 144)
+    if ((PLAN)); then
+        plan "[$name] create $px with profile $(px_profile "$name") ($(px_runner "$name")): wineboot -i, Windows 10, winemenubuilder disabled, ${dpi/keep/Wine default} DPI, theme, fonts"
+        return 0
+    fi
+    log "[$name] creating $px with profile $(px_profile "$name")"
+    non_ascii "$px" && warn "[$name] the prefix path contains non-ASCII characters; yabridge $PIN_NOTE fails to load VST3 plugins from such paths (CLAP works)"
+    mkdir -p "$px" || return 1
+    log=$(program_log "$name" wineboot) || return 1
+    wine_env "$name"
+    if ! env "${WENV[@]}" WINEDLLOVERRIDES="$(merge_overrides "${WINEDLLOVERRIDES:-}" winemenubuilder.exe=d)" \
+            "$LOADER" wineboot -i > "$log" 2>&1; then
+        err "[$name] wineboot -i failed; log: $log"; tail -n 15 "$log" >&2; return 1
+    fi
+    settle "$name" init || return 1
+    wine_in "$name" winecfg /v win10 >> "$log" 2>&1 || { err "[$name] 'winecfg /v win10' failed; log: $log"; return 1; }
+    reg_get "$px" "$HKCU_OVERRIDES" winemenubuilder.exe >/dev/null ||
+        reg_add "$name" "$HKCU_OVERRIDES" winemenubuilder.exe REG_SZ "" || return 1
+    if [[ $dpi != keep ]]; then reg_add "$name" "$HKCU_DESKTOP" LogPixels REG_DWORD "$dpi" || return 1; fi
+    mkdir -p "$px/drive_c/Program Files/Common Files/VST3" "$px/drive_c/Program Files/Common Files/CLAP" || return 1
+    write_marker "$name" || return 1
+    appearance_sync "$name" || warn "[$name] theme sync failed"
+    fonts_repair "$name" || warn "[$name] fonts are incomplete; see above, then run 'vstbridge fix-fonts $name'"
+    settle "$name" init || true
+    ok "[$name] prefix ready"
+}
+
+ensure_prefix_basics() {  # existing, ready prefix: managed override, theme, fonts (only what is missing)
+    local name=$1 rc=0
+    reg_get "$(px_path "$name")" "$HKCU_OVERRIDES" winemenubuilder.exe >/dev/null ||
+        reg_add "$name" "$HKCU_OVERRIDES" winemenubuilder.exe REG_SZ "" || rc=1
+    appearance_sync "$name" || rc=1
+    fonts_repair "$name" || rc=1
+    return "$rc"
+}
+
+cmd_migrate() {
+    local name='' arg px backup state
+    for arg; do [[ $arg == --plan ]] && PLAN=1 || name=$arg; done
+    require_prefix "$name"
+    px=$(px_path "$name") state=$(prefix_state "$name")
+    case $state in
+        missing) die "[$name] $px is not an initialized prefix; 'vstbridge setup' creates it" ;;
+        ready) ok "[$name] already uses profile $(px_profile "$name"); nothing to migrate"; return 0 ;;
+    esac
+    backup=$px/.vstbridge-backup/$(date +%Y%m%d-%H%M%S)
+    if [[ $state == unmarked ]]; then
+        log "[$name] adopt $px (no vstbridge marker) with profile $(px_profile "$name") ($(px_runner "$name"))"
+    else
+        log "[$name] migrate from profile $(marker_get "$name" profile) ($(marker_get "$name" runner)) to $(px_profile "$name") ($(px_runner "$name"))"
+    fi
+    if ((PLAN)); then
+        plan "close every program using $px (DAWs, licence managers)"
+        plan "back up $px/*.reg and the marker to $px/.vstbridge-backup/<timestamp>"
+        plan "write the marker for profile $(px_profile "$name") and run 'wineboot -u' with $(px_runner "$name")"
+        return 0
+    fi
+    [[ $(px_backend "$name") == ni-wine ]] && warn "[$name] NI activation data stays in the prefix; Native Access may still ask to re-authorize"
+    mkdir -p "$backup" && cp -p -- "$px"/*.reg "$backup/" || die "[$name] backup failed; nothing changed"
+    [[ -f $(marker "$name") ]] && cp -p -- "$(marker "$name")" "$backup/"
+    ensure_loader || die "could not write the dispatcher"
+    write_marker "$name" || die "[$name] could not write the marker"
+    if ! run_logged "$(program_log "$name" migrate)" wine_in "$name" wineboot -u; then
+        err "[$name] 'wineboot -u' failed with the new runner"
+        note "rollback: cp -p '$backup'/*.reg '$px/' and restore or delete $(marker "$name"), with the previous runner"
+        return 1
+    fi
+    settle "$name" migrate
+    ok "[$name] migrated; backup in $backup"
+    note "rollback: close programs using the prefix, cp -p '$backup'/*.reg '$px/', then restore $backup/.vstbridge-prefix (or delete the marker)"
+}
+
+# --- setup -------------------------------------------------------------------------------------
+
+REQUIRED_PACKAGES=(wine winetricks cabextract unzip dejavu-sans-fonts google-noto-sans-symbols-2-fonts
+                   liberation-sans-fonts liberation-serif-fonts liberation-mono-fonts)
+
+cmd_setup() {
+    local arg missing=() pkg name state blocked=() failed=() pending=()
+    for arg; do [[ $arg == --plan || $arg == --dry-run ]] && PLAN=1 || die "unknown setup option $arg"; done
+    ((PLAN)) && log "plan (nothing is changed)"
+    portal_scheme >/dev/null
+    if [[ ! -f $CONF ]]; then
+        if ((PLAN)); then plan "write the default configuration to $CONF"
+        else mkdir -p "$CONF_DIR" && default_conf > "$CONF" && ok "wrote $CONF" || failed+=("default configuration"); fi
+    fi
+    for pkg in "${REQUIRED_PACKAGES[@]}"; do rpm -q --quiet "$pkg" 2>/dev/null || missing+=("$pkg"); done
+    if ((${#missing[@]})); then
+        # Fedora's wine Recommends wine-dxvk, which switches the system's 64-bit D3D/DXGI to DXVK.
+        local exclude=()
+        [[ " ${missing[*]} " == *" wine "* ]] && exclude=("--exclude=wine-dxvk*")
+        if ((PLAN)); then plan "sudo dnf install ${exclude[*]}${exclude:+ }${missing[*]}"
+        else sudo dnf install -y "${exclude[@]}" "${missing[@]}" || failed+=("packages: ${missing[*]}"); fi
+    fi
+    ensure_loader || failed+=("dispatcher")
+    for name in "${PREFIXES[@]}"; do
+        state=$(prefix_state "$name")
+        if [[ $(px_backend "$name") == ni-wine ]]; then
+            case $state in
+                missing) pending+=("[$name] create it through the helper: vstbridge ni setup") ;;
+                ready) ensure_prefix_basics "$name" || failed+=("[$name] basics") ;;
+                *) blocked+=("[$name] $state: vstbridge migrate $name --plan") ;;
+            esac
+            continue
+        fi
+        case $state in
+            missing) create_prefix "$name" || failed+=("[$name] creation") ;;
+            ready) ensure_prefix_basics "$name" || failed+=("[$name] basics") ;;
+            *) blocked+=("[$name] $state: vstbridge migrate $name --plan") ;;
+        esac
+    done
+    if yabridgectl_path >/dev/null; then
+        bridge_sync || failed+=("yabridge sync")
+    else
+        pending+=("yabridge: no active build (vstbridge bridge status)")
+    fi
+    for name in "${PREFIXES[@]}"; do
+        [[ $(cfg "profile:$(px_profile "$name")" graphics wined3d) == dxvk ]] && continue
+        if [[ -n $(system_dxvk) ]]; then
+            pending+=("Fedora's wine-dxvk selects DXVK system-wide ($(system_dxvk | paste -sd' ')); for Wine's own D3D: sudo dnf remove 'wine-dxvk*', then 'vstbridge run <prefix> wineboot -u' per prefix ('vstbridge doctor' lists them)")
+        fi
+        break
+    done
+    rt_limits >/dev/null || pending+=("realtime limits for yabridge: $RT_FIX")
+    command -v ni >/dev/null || pending+=("ni-wine helper not installed: sudo dnf copr enable selimbucher/ni-wine && sudo dnf install ni-wine (review the COPR first)")
+    ((${#pending[@]})) && { warn "pending manual steps:"; printf '  %s\n' "${pending[@]}" >&2; }
+    ((${#blocked[@]})) && { err "prefixes left unchanged:"; printf '  %s\n' "${blocked[@]}" >&2; }
+    ((${#failed[@]})) && { err "failed: ${failed[*]}"; return 1; }
+    ((${#blocked[@]})) && return 1
+    ((PLAN)) || ok "setup complete; next: 'vstbridge doctor', then 'vstbridge paths'"
+    return 0
+}
+
+# --- Native Instruments through ni-wine ------------------------------------------------------
+
+ni_prefix_name() {
+    local name
+    for name in "${PREFIXES[@]}"; do [[ $(px_backend "$name") == ni-wine ]] && { echo "$name"; return 0; }; done
+    return 1
+}
+
+ni_helper_accepts_fraction() {
+    local f
+    while IFS= read -r f; do
+        [[ $f == *.py && -f $f ]] || continue
+        grep -q NI_WINE_SCALE "$f" && grep -q 'float(' "$f" && return 0
+    done < <(rpm -ql ni-wine 2>/dev/null; [[ -n ${VSTBRIDGE_NI_HELPER_DIR:-} ]] && find "$VSTBRIDGE_NI_HELPER_DIR" -name '*.py')
+    return 1
+}
+
+NIENV=()
+ni_env() {
+    local name=$1 scale e
+    NIENV=(NI_WINE_PREFIX="$(px_path "$name")" WINE="$(px_runner "$name")" WINESERVER="$(px_server "$name")")
+    case $(cfg "prefix:$name" esync inherit) in off) NIENV+=(WINEESYNC=0) ;; on) NIENV+=(WINEESYNC=1) ;; esac
+    while IFS= read -r e; do [[ -n $e ]] && NIENV+=("$e"); done < <(cfg "profile:$(px_profile "$name")" env '')
+    scale=$(cfg "prefix:$name" ni_scale '')
+    if [[ $scale =~ ^[0-9]+$ ]]; then NIENV+=(NI_WINE_SCALE="$scale")
+    elif [[ $scale =~ ^[0-9]+\.[0-9]+$ ]]; then
+        if ni_helper_accepts_fraction; then NIENV+=(NI_WINE_SCALE="$scale")
+        else warn "ni_scale = $scale: could not confirm that the installed ni-wine parses fractional NI_WINE_SCALE; leaving it unset"; fi
+    fi
+}
+
+cmd_ni() {
+    local sub=${1:-} name px existed=0 rc=0
+    shift || true
+    name=$(ni_prefix_name) || die "no prefix with 'backend = ni-wine' in vstbridge.conf"
+    px=$(px_path "$name")
+    if [[ -n ${NI_WINE_PREFIX:-} && $(realpath -m -- "$NI_WINE_PREFIX") != "$(realpath -m -- "$px")" ]]; then
+        die "NI_WINE_PREFIX in your environment is $NI_WINE_PREFIX, but vstbridge.conf uses $px. vstbridge does not repoint an NI prefix; change one of them explicitly"
+    fi
+    case $sub in
+        setup)
+            command -v ni >/dev/null || die "ni-wine is not installed (sudo dnf copr enable selimbucher/ni-wine && sudo dnf install ni-wine)"
+            case $(prefix_state "$name") in
+                missing) ;; ready) existed=1 ;;
+                *) require_ready "$name" ;;
+            esac
+            ensure_loader || die "could not write the dispatcher"
+            ni_env "$name"
+            env "${NIENV[@]}" ni setup "$@" || rc=$?
+            if ((rc == 0 && !existed)) && [[ -f $px/system.reg ]]; then
+                write_marker "$name" || rc=1
+                local dpi; dpi=$(cfg "prefix:$name" dpi '')
+                [[ -z $dpi ]] && dpi=$(cfg general new_prefix_dpi 144)
+                [[ $dpi == keep ]] || reg_add "$name" "$HKCU_DESKTOP" LogPixels REG_DWORD "$dpi" || rc=1
+            fi
+            ((rc)) && { err "[$name] 'ni setup' failed with status $rc"; return "$rc"; }
+            ensure_prefix_basics "$name" || warn "[$name] fonts or appearance need attention"
+            sync_after || return 3 ;;
+        native-access|launch)
+            command -v native-access >/dev/null || die "ni-wine's native-access launcher is not installed"
+            require_ready "$name" "'vstbridge ni setup'"
+            ensure_loader || die "could not write the dispatcher"
+            portal_scheme >/dev/null
+            appearance_sync "$name" || warn "[$name] appearance sync failed; continuing"
+            ni_env "$name"
+            env "${NIENV[@]}" native-access "$@" || rc=$?
+            ((rc)) && err "[$name] native-access exited with status $rc"
+            sync_after || { err "[$name] yabridge sync failed after Native Access"; ((rc)) || rc=3; }
+            return "$rc" ;;
+        doctor)
+            command -v ni >/dev/null || die "ni-wine is not installed"
+            ni_env "$name"
+            env "${NIENV[@]}" ni doctor "$@" ;;
+        *) die "usage: vstbridge ni setup|native-access|doctor" ;;
+    esac
+}
+
+cmd_ni_postinstall() {
+    if ni_prefix_name >/dev/null; then
+        warn "ni-postinstall is deprecated: ni-wine installs and starts NTKDaemonService itself. Running 'vstbridge ni doctor' instead."
+        cmd_ni doctor
+    else
+        die "ni-postinstall is removed: it searched the Native Access 2 layout and never matched Native Access 1.14.1. For the NA1 fallback, run its installers with 'vstbridge install <prefix> <installer>'"
+    fi
+}
+
+# --- installer images ---------------------------------------------------------------------------
+
+cmd_iso() {
+    local name=${1:-} image=${2:-} exe='' out dev='' mnt='' mounted=0 rc=0 cancelled=0 args=() cleanup_failed=0
+    [[ -n $name && -n $image ]] || die "usage: vstbridge iso <prefix> <image> [--exe PATH-IN-IMAGE] [-- args...]"
+    shift 2
+    while (($#)); do
+        case $1 in --exe) exe=${2:?--exe needs a path}; shift 2 ;; --) shift; args=("$@"); break ;; *) die "unknown option $1" ;; esac
+    done
+    require_prefix "$name"; require_ready "$name"
+    [[ -f $image ]] || die "no such image: $image"
+    command -v udisksctl >/dev/null || die "udisksctl is required"
+    out=$(udisksctl loop-setup -r -f "$image" 2>&1) || die "loop-setup failed: $out"
+    [[ $out =~ as\ (/dev/[^[:space:]]+)\.?$ ]] || die "unexpected udisksctl output: $out"
+    dev=${BASH_REMATCH[1]} dev=${dev%.}
+    iso_cleanup() {
+        ((mounted)) && { udisksctl unmount -b "$dev" >/dev/null 2>&1 || { err "could not unmount $dev ($mnt)"; cleanup_failed=1; }; }
+        udisksctl loop-delete -b "$dev" >/dev/null 2>&1 || { err "could not delete loop device $dev"; cleanup_failed=1; }
+    }
+    trap 'iso_cleanup; exit 130' INT TERM
+    mnt=$(findmnt -n -o TARGET --source "$dev" 2>/dev/null | head -n1) || mnt=''
+    if [[ -z $mnt ]]; then
+        if out=$(udisksctl mount -b "$dev" -o ro 2>&1) || out=$(udisksctl mount -b "$dev" -t udf -o ro 2>&1); then
+            [[ $out =~ \ at\ (.+)$ ]] && mnt=${BASH_REMATCH[1]%.}
+        fi
+        # Plasma may automount the new loop device between the two calls.
+        [[ -n $mnt ]] || mnt=$(findmnt -n -o TARGET --source "$dev" 2>/dev/null | head -n1) || mnt=''
+    fi
+    mounted=1
+    if [[ -z $mnt || ! -d $mnt ]]; then err "could not mount $dev read-only: $out"; iso_cleanup; return 1; fi
+    if [[ -z $exe ]]; then
+        log "installers in $(basename -- "$image") (choose one with --exe):"
+        (cd "$mnt" && find . -maxdepth 3 -iname '*.exe' | sed 's|^\./|  |' | sort)
+        iso_cleanup; trap - INT TERM
+        return 2
+    fi
+    [[ $exe != /* && $exe != *..* && -f $mnt/$exe ]] || { err "$exe is not a file inside the image"; iso_cleanup; trap - INT TERM; return 1; }
+    ensure_loader || { iso_cleanup; die "could not write the dispatcher"; }
+    log "[$name] installing $exe from $(basename -- "$image") ($dev at $mnt)"
+    local logfile; logfile=$(program_log "$name" iso) || { iso_cleanup; die "could not create a log"; }
+    [[ -n ${VSTBRIDGE_VERBOSE:-} ]] || note "Wine output: $logfile"
+    trap 'cancelled=1' INT
+    run_logged "$logfile" wine_in "$name" "$mnt/$exe" "${args[@]}" || rc=$?
+    trap - INT TERM
+    finalize "$name" iso "$rc" "$cancelled"; rc=$?
+    iso_cleanup
+    ((rc == 0 && cleanup_failed)) && return 3
+    return "$rc"
+}
+
+# --- DAWs ---------------------------------------------------------------------------------------
+
+daw_label() { case $1 in bitwig) echo "Bitwig Studio" ;; reaper) echo REAPER ;; renoise) echo Renoise ;; esac; }
+
+daw_candidates() {
+    case $1 in
+        bitwig) printf '%s\n' bitwig-studio /opt/bitwig-studio/bitwig-studio ;;
+        reaper) printf '%s\n' reaper "$HOME/opt/REAPER/reaper" /opt/REAPER/reaper ;;
+        renoise) printf '%s\n' renoise /usr/local/bin/renoise ;;
+    esac
+}
+
+is_flatpak_path() { [[ $1 == */flatpak/exports/* || $1 == /app/* ]]; }
+
+resolve_daw() {
+    local daw=$1 c p
+    if c=$(cfg "daw:$daw" exec 2>/dev/null); then
+        p=$(expand "$c")
+        [[ -x $p && ! -d $p ]] || { err "[daw $daw] exec = $p is not executable"; return 1; }
+        printf '%s\n' "$p"; return 0
+    fi
+    while IFS= read -r c; do
+        if [[ $c == /* ]]; then
+            [[ -x $c && ! -d $c ]] && ! is_flatpak_path "$c" && { printf '%s\n' "$c"; return 0; }
+        else
+            while IFS= read -r p; do
+                [[ $(realpath -- "$p") == "$SELF" ]] && continue
+                is_flatpak_path "$p" || { printf '%s\n' "$p"; return 0; }
+            done < <(type -ap "$c")
+        fi
+    done < <(daw_candidates "$daw")
+    return 1
+}
+
+cmd_launch() {
+    local daw=${1:-} exe name
+    [[ " ${DAWS[*]} " == *" $daw "* ]] || die "usage: vstbridge launch <bitwig|reaper|renoise> [-- args...]"
+    shift
+    [[ ${1:-} == -- ]] && shift
+    exe=$(resolve_daw "$daw") || die "$(daw_label "$daw") executable not found; set it with [daw $daw] exec = ... in vstbridge.conf"
+    [[ -n ${DISPLAY:-} ]] || die "DISPLAY is not set: yabridge embeds editors through X11, so start the DAW from a Plasma Wayland session with XWayland"
+    ensure_loader || die "could not write the dispatcher"
+    yabridgectl_path >/dev/null || warn "no active yabridge build; bridged plugins will not load ('vstbridge bridge status')"
+    portal_scheme >/dev/null
+    for name in "${PREFIXES[@]}"; do
+        appearance_sync "$name" >/dev/null || warn "[$name] appearance sync failed; launching anyway"
+    done
+    [[ -n ${WINEPREFIX:-} ]] && warn "ignoring WINEPREFIX=$WINEPREFIX: each plugin uses its own prefix"
+    unset WINEPREFIX
+    export WINELOADER=$LOADER
+    exec "$exe" "$@"
+}
+
+desktop_quote() {  # one Exec argument: Exec quoting, then the string-value escape for backslashes
+    local a=${1//%/%%}
+    case $a in
+        *[[:space:]\"\'\\\>\<~\|\&\;\$\*\?\#\(\)\`]*)
+            a=${a//\\/\\\\} a=${a//\"/\\\"} a=${a//\`/\\\`} a=${a//\$/\\\$}
+            a=\"$a\" ;;
+    esac
+    printf '%s' "${a//\\/\\\\}"
+}
+
+system_desktop_value() {  # value of a key in the DAW's system desktop file, if any
+    local f
+    for f in /usr/share/applications/*.desktop /usr/local/share/applications/*.desktop; do
+        [[ -f $f ]] || continue
+        case $1 in
+            bitwig) [[ ${f##*/} == *[Bb]itwig* ]] || continue ;;
+            reaper) [[ ${f##*/} == *[Rr][Ee][Aa][Pp][Ee][Rr]* ]] || continue ;;
+            renoise) [[ ${f##*/} == *[Rr]enoise* ]] || continue ;;
+        esac
+        awk -F= -v k="$2" '$1 == k { sub(/^[^=]*=/, ""); print; exit }' "$f"; return
+    done
+}
+
+cmd_desktop() {
+    local sub=${1:-} daws=() daw dir file icon wm
+    shift || true
+    daws=("$@"); ((${#daws[@]})) || daws=("${DAWS[@]}")
+    dir=${XDG_DATA_HOME:-$HOME/.local/share}/applications
+    for daw in "${daws[@]}"; do
+        [[ " ${DAWS[*]} " == *" $daw "* ]] || die "unknown DAW $daw"
+        file=$dir/vstbridge-$daw.desktop
+        case $sub in
+            install)
+                resolve_daw "$daw" >/dev/null || { [[ $# -gt 0 ]] && warn "$(daw_label "$daw") not found; skipped"; continue; }
+                if [[ -e $file ]] && ! grep -qx 'X-Vstbridge-Managed=true' "$file"; then
+                    err "$file exists and was not written by vstbridge; left unchanged"; continue
+                fi
+                icon=$(system_desktop_value "$daw" Icon) wm=$(system_desktop_value "$daw" StartupWMClass)
+                mkdir -p "$dir"
+                {
+                    printf '[Desktop Entry]\nType=Application\nName=%s (vstbridge)\n' "$(daw_label "$daw")"
+                    printf 'Comment=%s with the vstbridge Wine runtime for Windows plugins\n' "$(daw_label "$daw")"
+                    printf 'Exec=%s launch %s -- %%F\n' "$(desktop_quote "$SELF")" "$daw"
+                    printf 'Icon=%s\n' "${icon:-audio-x-generic}"
+                    [[ -n $wm ]] && printf 'StartupWMClass=%s\n' "$wm"
+                    printf 'Terminal=false\nCategories=AudioVideo;Audio;\nX-Vstbridge-Managed=true\n'
+                } > "$file" || die "could not write $file"
+                ok "wrote $file" ;;
+            remove)
+                [[ -f $file ]] || continue
+                grep -qx 'X-Vstbridge-Managed=true' "$file" || { err "$file was not written by vstbridge; left unchanged"; continue; }
+                rm -f -- "$file" && ok "removed $file" ;;
+            *) die "usage: vstbridge desktop install|remove [${DAWS[*]}]" ;;
+        esac
+    done
+}
+
+# --- doctor ------------------------------------------------------------------------------------
+
+NPASS=0 NWARN=0 NFAIL=0 NUNKNOWN=0
+d_pass()    { NPASS=$((NPASS + 1)); printf '  %spass%s    %s\n' "$G" "$N" "$*"; }
+d_warn()    { NWARN=$((NWARN + 1)); printf '  %swarn%s    %s\n' "$Y" "$N" "$*"; }
+d_fail()    { NFAIL=$((NFAIL + 1)); printf '  %sFAIL%s    %s\n' "$R" "$N" "$*"; }
+d_unknown() { NUNKNOWN=$((NUNKNOWN + 1)); printf '  %sunknown%s %s\n' "$D" "$N" "$*"; }
+d_info()    { printf '  info    %s\n' "$*"; }
+section()   { printf '%s%s%s\n' "$B" "$*" "$N"; }
+
+rpm_origin() {  # package and vendor that own a file
+    local real; real=$(realpath -- "$1" 2>/dev/null) || return 1
+    rpm -qf --qf '%{NAME}-%{VERSION}-%{RELEASE} (%{VENDOR})\n' "$real" 2>/dev/null | head -n1 | grep -v 'not owned'
+}
+
+dll_kind() {  # wine | dxvk | native | missing
+    [[ -f $1 ]] || { echo missing; return; }
+    # Fedora's wine-dxvk builds DXVK as a Wine builtin, so the signature alone is not proof.
+    if LC_ALL=C grep -aqm1 DXVK "$1"; then echo dxvk
+    elif LC_ALL=C grep -aqm1 -e 'Wine builtin DLL' -e 'Wine placeholder DLL' "$1"; then echo wine
+    else echo native; fi
+}
+
+system_dxvk() {  # D3D/DXGI alternatives of the packaged Wine that currently select DXVK
+    local dll arch target
+    command -v alternatives >/dev/null || return 0
+    for arch in x86-64 x86-32; do
+        for dll in "${GRAPHICS_DLLS[@]}"; do
+            target=$(alternatives --display "wine-$dll($arch)" 2>/dev/null | sed -n 's/^ *link currently points to //p')
+            [[ ${target##*/} == dxvk-* ]] && printf '%s(%s)\n' "$dll" "$arch"
+        done
+    done
+    return 0
+}
+
+doctor_graphics() {
+    local name=$1 px graphics dir dll kind natives=() overrides=() line
+    px=$(px_path "$name") graphics=$(cfg "profile:$(px_profile "$name")" graphics wined3d)
+    for dir in system32 syswow64; do
+        for dll in "${GRAPHICS_DLLS[@]}"; do
+            kind=$(dll_kind "$px/drive_c/windows/$dir/$dll.dll")
+            case $kind in
+                dxvk) natives+=("$dir/$dll.dll (DXVK)") ;;
+                native) natives+=("$dir/$dll.dll (not Wine's)") ;;
+            esac
+        done
+    done
+    while IFS=$'\t' read -r _ line; do
+        [[ -n $line ]] || continue
+        for dll in "${GRAPHICS_DLLS[@]}"; do
+            [[ ${line,,} == "$dll="* || ${line,,} == "*$dll="* ]] && [[ ${line#*=} == n* ]] && overrides+=("$line")
+        done
+    done < <(reg_overrides "$px")
+    if ((${#natives[@]} + ${#overrides[@]} == 0)); then
+        [[ $graphics == dxvk ]] && d_warn "[$name] dxvk profile, but no DXVK DLLs or native overrides were found" || d_pass "[$name] graphics: Wine's own D3D/DXGI ($graphics)"
+        return
+    fi
+    local summary="replaced DLLs: ${natives[*]:-none}; native overrides: ${overrides[*]:-none}"
+    case $graphics in
+        dxvk) d_pass "[$name] dxvk profile: $summary" ;;
+        *)
+            if [[ $graphics == giang17 ]]; then d_fail "[$name] giang17 profile with $summary"; else d_warn "[$name] $graphics profile with $summary"; fi
+            note "Repair: close programs using the prefix, then 'vstbridge graphics reset $name --plan' and without --plan."
+            note "  It renames the DLLs (nothing is deleted), removes native overrides and runs wineboot -u." ;;
+    esac
+}
+
+doctor_esync() {
+    local name=$1 policy effective
+    policy=$(cfg "prefix:$name" esync inherit)
+    case $policy in
+        off) effective="WINEESYNC=0 (disabled)" ;;
+        on) effective="WINEESYNC=1 (enabled where the runner implements esync)" ;;
+        inherit)
+            case ${WINEESYNC-} in
+                '') effective="unset (runner default)" ;;
+                0) effective="WINEESYNC=0 (disabled)" ;;
+                *) effective="WINEESYNC=$WINEESYNC (enabled where the runner implements esync)" ;;
+            esac ;;
+    esac
+    if [[ $name == kilohearts && $effective == *enabled* ]]; then
+        d_fail "[$name] esync $effective; Kilohearts plugins leak file descriptors with esync (set esync = off)"
+    else
+        d_info "[$name] esync policy $policy -> $effective"
+    fi
+}
+
+cmd_doctor() {
+    local name prof runner server version sversion origin ctl id dir copies stale total fmt f lib px state val daw exe sysdxvk
+    local -A used_profiles=()
+    NPASS=0 NWARN=0 NFAIL=0 NUNKNOWN=0
+
+    section "Session"
+    printf '  info    XDG_SESSION_TYPE=%s DISPLAY=%s WAYLAND_DISPLAY=%s\n' "${XDG_SESSION_TYPE:-unset}" "${DISPLAY:-unset}" "${WAYLAND_DISPLAY:-unset}"
+    if [[ -n ${DISPLAY:-} ]]; then d_pass "DISPLAY is set: Wine uses its X11 driver through XWayland (yabridge removes WAYLAND_DISPLAY for plugin hosts)"
+    else d_fail "DISPLAY is not set: yabridge editors need X11 through XWayland"; fi
+    case $(kde_xwayland_self_scaling) in
+        true) d_pass "KDE legacy X11 apps: Apply scaling themselves" ;;
+        false) d_warn "KDE legacy X11 apps: Scaled by the system (blurry XWayland text); recommended: Apply scaling themselves" ;;
+        *) d_unknown "KDE XwaylandClientsScale setting could not be read" ;;
+    esac
+    if val=$(rt_limits); then d_pass "realtime limits: memlock unlimited, rtprio $(ulimit -r)"
+    else d_warn "realtime limits missing ($val): yabridge cannot lock its audio buffers or use realtime priority; fix: $RT_FIX"; fi
+    [[ -n ${WINEPREFIX:-} ]] && d_warn "WINEPREFIX=$WINEPREFIX is set in this environment; 'vstbridge launch' removes it so plugins keep their own prefixes"
+    printf '  info    launch environment: WINELOADER=%s, WINEPREFIX unset, DISPLAY preserved\n' "$LOADER"
+
+    section "Configuration"
+    if [[ -f $CONF ]]; then d_pass "$CONF parsed"; else d_info "no $CONF; using built-in defaults ('vstbridge config init' writes them)"; fi
+    for prof in "${PROFILES[@]}"; do
+        is_fallback "$prof" && [[ $(cfg "profile:$prof" evidence '') == *'<'* ]] && d_warn "profile $prof: evidence is still a placeholder"
+    done
+
+    section "Runners"
+    for name in "${PREFIXES[@]}"; do used_profiles[$(px_profile "$name")]=1; done
+    for prof in "${PROFILES[@]}"; do
+        [[ -n ${used_profiles[$prof]:-} ]] || continue
+        runner=$(profile_runner "$prof") server=$(profile_server "$prof")
+        if [[ ! -x $runner ]]; then d_fail "profile $prof: runner $runner is not executable"; continue; fi
+        if version=$(runner_version "$runner"); then d_pass "profile $prof: $runner -> $version"
+        else d_fail "profile $prof: '$runner --version' failed"; continue; fi
+        if [[ ! -x $server ]]; then d_fail "profile $prof: wineserver $server is not executable"
+        elif sversion=$("$server" --version 2>&1 | head -n1) && [[ -n $sversion ]]; then
+            local rv=${version#wine-} sv
+            rv=${rv%% *} sv=$(grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' <<< "$sversion" | head -n1)
+            if [[ $rv == "$sv" ]]; then d_pass "profile $prof: $server matches ($sversion)"
+            else d_fail "profile $prof: $server reports '$sversion', runner is $version"; fi
+        else
+            d_fail "profile $prof: '$server --version' failed"
+        fi
+        origin=$(rpm_origin "$runner") && d_info "profile $prof: runner package $origin" || d_info "profile $prof: runner is not owned by an RPM"
+        if [[ $prof == baseline && ${origin:-} == *[Cc]opr* ]]; then
+            d_warn "profile baseline: $runner comes from a COPR, not Fedora; a fork has replaced the system wine"
+        fi
+        if [[ -n ${origin:-} ]]; then
+            mapfile -t sysdxvk < <(system_dxvk)
+            if ((${#sysdxvk[@]})); then
+                val="profile $prof: the system's alternatives select DXVK for ${sysdxvk[*]}, so new and updated prefixes get DXVK"
+                case $(cfg "profile:$prof" graphics wined3d) in
+                    dxvk) d_info "$val" ;;
+                    giang17) d_fail "$val" ;;
+                    *) d_warn "$val" ;;
+                esac
+                [[ $(cfg "profile:$prof" graphics wined3d) == dxvk ]] ||
+                    note "For Wine's own D3D: sudo dnf remove 'wine-dxvk*', then 'vstbridge run <prefix> wineboot -u' for each prefix"
+            fi
+        fi
+    done
+
+    section "Bridge"
+    if ctl=$(yabridgectl_path) && dir=$(bridge_dir); then
+        id=$(bridge_id) || id=unknown
+        d_info "active build $id in $dir"
+        if [[ $id == "$(cfg bridge pin '')" ]]; then d_pass "bridge matches pin $(cfg bridge pin '')"
+        else d_warn "bridge $id differs from pin $(cfg bridge pin '')"; fi
+        if [[ $(cfg bridge source local) == local ]]; then
+            for f in "${BRIDGE_FILES[@]}"; do [[ -e $dir/$f ]] || d_fail "bridge component $dir/$f is missing"; done
+        else
+            type -P yabridge-host.exe >/dev/null || d_fail "system bridge: yabridge-host.exe is not on PATH"
+            chainloader_lib vst3 >/dev/null || d_fail "system bridge: libyabridge-chainloader-vst3.so not found in /usr/lib64 or /usr/lib"
+        fi
+        mapfile -t copies < <(bridge_copies)
+        if ((${#copies[@]} > 1)); then d_fail "several yabridge installations are visible (the chainloader prefers PATH): ${copies[*]}"
+        else d_pass "one yabridge installation visible"; fi
+        if val=$(WINELOADER=$LOADER "$ctl" status 2>&1); then d_pass "yabridgectl status succeeded"
+        else d_fail "yabridgectl status failed: $(tail -n 3 <<< "$val" | tr '\n' ' ')"; fi
+        stale=0 total=0
+        for fmt in "${FORMATS[@]}"; do
+            lib=$(chainloader_lib "$fmt") || continue
+            while IFS= read -r -d '' f; do
+                total=$((total + 1)); cmp -s "$f" "$lib" || stale=$((stale + 1))
+            done < <(case $fmt in
+                vst3) find "$(bridged_dir vst3)" -path '*/Contents/x86_64-linux/*.so' -print0 2>/dev/null ;;
+                clap) find "$(bridged_dir clap)" -name '*.clap' -type f -print0 2>/dev/null ;;
+                vst2) find "$(bridged_dir vst2)" -name '*.so' -type f -print0 2>/dev/null ;;
+            esac)
+        done
+        if ((stale)); then d_warn "$stale of $total generated plugin wrappers come from another yabridge build; run 'vstbridge sync'"
+        else d_pass "$total generated plugin wrappers match the active build"; fi
+        for prof in "${PROFILES[@]}"; do
+            val=$(cfg "profile:$prof" bridge '')
+            [[ -n $val && -n ${used_profiles[$prof]:-} && $id != "$val"* ]] && d_fail "profile $prof needs bridge $val, active is $id"
+        done
+    else
+        d_fail "no active yabridge build"
+        bridge_instructions
+    fi
+
+    section "Dispatcher"
+    if [[ ! -x $LOADER ]]; then d_fail "$LOADER is missing; any vstbridge command except doctor writes it"
+    elif cmp -s <(loader_text) "$LOADER"; then d_pass "$LOADER matches vstbridge.conf"
+    else d_warn "$LOADER is stale; 'vstbridge sync' regenerates it"; fi
+
+    section "Prefixes"
+    for name in "${PREFIXES[@]}"; do
+        px=$(px_path "$name") state=$(prefix_state "$name")
+        case $state in
+            missing) d_warn "[$name] $px does not exist yet"; continue ;;
+            unmarked) d_warn "[$name] $px has no vstbridge marker; adopt it with 'vstbridge migrate $name'" ;;
+            mismatch) d_fail "[$name] set up with $(marker_get "$name" profile), configured as $(px_profile "$name"); 'vstbridge migrate $name --plan'" ;;
+            ready) d_pass "[$name] profile $(px_profile "$name"), $(prefix_arch "$px" || echo '?'), $(reg_get "$px" 'HKLM\Software\Microsoft\Windows NT\CurrentVersion' ProductName || echo 'Windows version unknown') build $(reg_get "$px" 'HKLM\Software\Microsoft\Windows NT\CurrentVersion' CurrentBuild || echo '?')" ;;
+        esac
+        non_ascii "$px" && d_warn "[$name] path contains non-ASCII characters; yabridge $PIN_NOTE fails to load VST3 plugins from it (wstring_convert::from_bytes); CLAP works"
+        val=$(reg_get "$px" 'HKCU\Software\Wine\Drivers' Graphics) && [[ ${val,,} == wayland* ]] &&
+            d_warn "[$name] HKCU\\Software\\Wine\\Drivers Graphics=$val selects the Wayland driver; yabridge needs x11"
+        d_info "[$name] DPI $(reg_get "$px" "$HKCU_DESKTOP" LogPixels || echo 'unset (96)'), AppsUseLightTheme $(reg_get "$px" "$HKCU_PERSONALIZE" AppsUseLightTheme || echo unset)"
+        doctor_graphics "$name"
+        val=$(reg_get "$px" "$HKLM_FONTLINK" Tahoma) || val=''
+        if [[ -n $(prefix_font "$px" NotoSansSymbols2-Regular.ttf) ]] && grep -qi 'NotoSansSymbols2' <<< "$val"; then
+            d_pass "[$name] symbol fallback fonts present and linked"
+        else
+            d_warn "[$name] symbol fallback fonts missing or unlinked; 'vstbridge fix-fonts $name'"
+        fi
+        doctor_esync "$name"
+    done
+    local -A owner=()
+    local rel
+    while IFS=$'\t' read -r name fmt dir; do
+        d_info "[$name] $fmt $(count_plugins "$fmt" "$dir") in $dir"
+        while IFS= read -r -d '' f; do
+            rel=${f#"$dir"/}
+            if [[ -n ${owner[$fmt/$rel]:-} && ${owner[$fmt/$rel]} != "$name" ]]; then
+                d_warn "$fmt '$rel' is installed in prefixes ${owner[$fmt/$rel]} and $name; yabridgectl bridges only one copy (the first directory in 'yabridgectl list')"
+            else
+                owner[$fmt/$rel]=$name
+            fi
+        done < <(plugin_entries "$fmt" "$dir")
+    done < <(plugin_dirs)
+
+    section "yabridge.toml"
+    for fmt in "${FORMATS[@]}"; do
+        f=$(bridged_dir "$fmt")/yabridge.toml
+        [[ -f $f ]] || continue
+        toml_valid "$f"
+        case $? in 0) d_pass "$f is valid TOML" ;; 1) d_fail "$f is not valid TOML" ;; *) d_unknown "$f not checked (needs python3 >= 3.11)" ;; esac
+        grep -q '"\*Nameless\*", "\*Fortin\*"' "$f" && d_warn "$f still contains the v1 Neural DSP example, which is invalid TOML when uncommented; delete it"
+    done
+
+    section "Hosts"
+    for daw in "${DAWS[@]}"; do
+        if exe=$(resolve_daw "$daw"); then
+            d_info "$(daw_label "$daw"): $exe -> $(realpath -- "$exe")"
+        else
+            d_info "$(daw_label "$daw"): not found"
+        fi
+    done
+    if command -v flatpak >/dev/null && val=$(flatpak list --app --columns=application 2>/dev/null | grep -iE 'bitwig|reaper|renoise'); then
+        d_info "Flatpak DAW copies present (not used by 'vstbridge launch'): $(paste -sd' ' <<< "$val")"
+    fi
+
+    printf '%s%d pass, %d warn, %d fail, %d unknown%s\n' "$B" "$NPASS" "$NWARN" "$NFAIL" "$NUNKNOWN" "$N"
+    if ((NFAIL)); then err "doctor found failures"; return 1; fi
+    ((NWARN + NUNKNOWN)) && warn "doctor found no failures, but review the warnings" || ok "doctor found no problems"
+    note "doctor checks configuration and files; it does not show that activation or audio works"
+    return 0
+}
+
+# --- manifest, paths, prefixes, config ------------------------------------------------------------
+
+cmd_manifest() {
+    local write=0 out name px prof f ver bundle
+    [[ ${1:-} == --write ]] && write=1
+    out=$(
+        printf '# vstbridge reproducibility manifest (no credentials, serials or tokens)\n'
+        printf 'generated: %s\n' "$(date +%FT%T%z)"
+        printf 'os: %s\n' "$(. /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-unknown}")"
+        printf 'session: %s, DISPLAY=%s, kde_apply_scaling_themselves=%s\n' "${XDG_SESSION_TYPE:-unset}" "${DISPLAY:-unset}" "$(kde_xwayland_self_scaling)"
+        printf 'desktop_color_scheme: %s\n' "$(portal_scheme)"
+        printf 'profiles:\n'
+        for prof in "${PROFILES[@]}"; do
+            printf '  %s: runner=%s version=%s wineserver=%s package=%s graphics=%s origin="%s"%s\n' "$prof" \
+                "$(profile_runner "$prof")" "$(runner_version "$(profile_runner "$prof")" || echo unavailable)" \
+                "$(profile_server "$prof")" "$(rpm_origin "$(profile_runner "$prof")" || echo none)" \
+                "$(cfg "profile:$prof" graphics wined3d)" "$(cfg "profile:$prof" origin '')" \
+                "$(is_fallback "$prof" && printf ' evidence="%s"' "$(cfg "profile:$prof" evidence '')")"
+        done
+        printf 'bridge: id=%s dir=%s pin=%s\n' "$(bridge_id || echo none)" "$(bridge_dir || echo none)" "$(cfg bridge pin '')"
+        [[ -f "$(bridge_dir 2>/dev/null)/ORIGIN" ]] && sed 's/^/  /' "$(bridge_dir)/ORIGIN"
+        printf 'prefixes:\n'
+        for name in "${PREFIXES[@]}"; do
+            px=$(px_path "$name")
+            printf '  %s: path=%s profile=%s backend=%s state=%s\n' "$name" "$px" "$(px_profile "$name")" "$(px_backend "$name")" "$(prefix_state "$name")"
+            [[ -f $px/system.reg ]] || continue
+            printf '    arch=%s windows="%s" build=%s dpi=%s apps_light=%s esync=%s\n' "$(prefix_arch "$px")" \
+                "$(reg_get "$px" 'HKLM\Software\Microsoft\Windows NT\CurrentVersion' ProductName || echo unknown)" \
+                "$(reg_get "$px" 'HKLM\Software\Microsoft\Windows NT\CurrentVersion' CurrentBuild || echo unknown)" \
+                "$(reg_get "$px" "$HKCU_DESKTOP" LogPixels || echo unset)" "$(reg_get "$px" "$HKCU_PERSONALIZE" AppsUseLightTheme || echo unset)" \
+                "$(cfg "prefix:$name" esync inherit)"
+            printf '    dll_overrides: %s\n' "$(reg_overrides "$px" | cut -f2 | paste -sd' ' -)"
+            printf '    marker: %s\n' "$(paste -sd' ' "$(marker "$name")" 2>/dev/null || echo none)"
+            while IFS= read -r -d '' bundle; do
+                ver=$(grep -m1 -o '"Version"[^,]*' "$bundle/Contents/Resources/moduleinfo.json" 2>/dev/null | sed 's/.*: *"\(.*\)"/\1/')
+                printf '    vst3: %s %s\n' "${bundle##*/}" "${ver:-version-unknown}"
+            done < <(find "$px/drive_c" -iname '*.vst3' -prune -print0 2>/dev/null)
+        done
+        printf 'hosts:\n'
+        for f in "${DAWS[@]}"; do
+            printf '  %s: %s %s\n' "$f" "$(resolve_daw "$f" || echo not-found)" "$(rpm_origin "$(resolve_daw "$f" 2>/dev/null || echo /nonexistent)" || true)"
+        done
+        printf 'validation:\n'
+        local any=0 key
+        while IFS= read -r key; do
+            [[ $key == validation/* ]] || continue
+            any=1; printf '  %s: %s\n' "${key#validation/}" "${C[$key]}"
+        done < <(printf '%s\n' "${!C[@]}" | sort)
+        ((any)) || printf '  none recorded: every product/host check is pending\n'
+    )
+    printf '%s\n' "$out"
+    if ((write)); then
+        mkdir -p "$STATE" && f=$STATE/manifest-$(date +%Y%m%d-%H%M%S).txt && printf '%s\n' "$out" > "$f" && ok "wrote $f"
+    fi
+}
+
+cmd_paths() {
+    local fmt name dir
+    printf '%sBridged plugins (written by yabridgectl sync)%s\n' "$B" "$N"
+    for fmt in "${FORMATS[@]}"; do
+        dir=$(bridged_dir "$fmt")
+        printf '  %-5s %s (%s)\n' "${fmt^^}" "$dir" "$( [[ -d $dir ]] && count_plugins "$fmt" "$dir" || echo 'not created yet')"
+    done
+    cat <<EOF
+
+${B}Hosts${N}
+  Bitwig Studio  Settings > Locations > Plug-in Locations: make sure ~/.vst/yabridge (VST2),
+                 ~/.vst3/yabridge (VST3) and ~/.clap/yabridge (CLAP) are scanned.
+  REAPER         Preferences > Plug-ins > VST: add ~/.vst/yabridge and ~/.vst3/yabridge to the
+                 VST path list. CLAP has its own page and path list: add ~/.clap/yabridge there.
+  Renoise        Preferences > Plug/Misc: VST2 and VST3 paths. Renoise 3.5.4 does not load CLAP.
+
+${B}Registered Windows directories${N}
+EOF
+    while IFS=$'\t' read -r name fmt dir; do
+        printf '  [%s] %s %s (%s)\n' "$name" "${fmt^^}" "$dir" "$(count_plugins "$fmt" "$dir")"
+    done < <(plugin_dirs)
+    printf '\nAfter installing outside vstbridge: vstbridge sync\n'
+}
+
+prefix_note() {
+    case $1 in
+        fabfilter) echo "VST3 first. VST2 is a fallback for a reproduced scaling problem; keep the format each project was saved with. VST2 grouping is an opt-in [yabridge] rule." ;;
+        kilohearts) echo "esync off at plugin runtime. Kilohearts Installer keeps content and licence data in C:\\ProgramData\\Kilohearts; keep the whole prefix. VST2/VST3." ;;
+        arturia) echo "Arturia Software Center and Pigments in this prefix. Pigments resizes 50-200% and has a manual Classic (dark) / Light theme." ;;
+        minimalaudio) echo "Rift and Morph EQ are validated separately. Rift has its own OpenGL setting; no DXVK by default." ;;
+        xln) echo "Validate XLN Online Installer separately from XO. XO has 50-200% UI scale and an OpenGL toggle." ;;
+        ni) echo "ni-wine owns this prefix: 'vstbridge ni setup', then 'vstbridge ni native-access'. Owned Komplete 14 products only, no 'Update all'; Kontakt 7 with compatible library versions." ;;
+        neuraldsp) echo "Fortin Nameless Suite (X): iLok; activate to this computer in iLok License Manager inside this prefix. Installation, trial audio and licensed cold restart are separate checks." ;;
+        bogren) echo "MLC S_Zero 93 and S_Zero 100: Wine compatibility unverified. Activate with the serial in the plugin (Activate License)." ;;
+    esac
+}
+
+cmd_prefixes() {
+    local name
+    for name in "${PREFIXES[@]}"; do
+        printf '%s%-13s%s %s\n' "$B" "$name" "$N" "$(px_path "$name")"
+        printf '              profile %s, backend %s, %s\n' "$(px_profile "$name")" "$(px_backend "$name")" "$(prefix_state "$name")"
+        if [[ -n $(prefix_note "$name") ]]; then printf '              %s\n' "$(prefix_note "$name")"; fi
+    done
+}
+
+cmd_config() {
+    local sub=${1:-show} file
+    case $sub in
+        init)
+            [[ -e $CONF ]] && die "$CONF exists; vstbridge does not overwrite it"
+            mkdir -p "$CONF_DIR" && default_conf > "$CONF" && ok "wrote $CONF" ;;
+        show) if [[ -f $CONF ]]; then cat -- "$CONF"; else default_conf; fi ;;
+        check)
+            file=${2:-$CONF}
+            if [[ -f $file ]]; then parse_conf "$file" < "$file"; else parse_conf "built-in defaults" < <(default_conf); fi
+            if ((${#CONF_ERRORS[@]})); then printf '%s\n' "${CONF_ERRORS[@]}" >&2; return 1; fi
+            ok "configuration is valid" ;;
+        *) die "usage: vstbridge config init|show|check [file]" ;;
+    esac
+}
+
+usage() {
+    cat <<'EOF'
+usage: vstbridge <command> [args]
+
+Setup
+  setup [--plan]                    install missing Fedora packages, create new prefixes, write
+                                    the Wine dispatcher, register plugin folders, sync yabridge
+  plan                              setup --plan: print the actions without changing anything
+  migrate <prefix> [--plan]         adopt an unmarked prefix or move it to its configured profile
+  bridge status|list                active yabridge build, its origin, shadowing copies
+  bridge install <archive>... [--origin TEXT] [--id ID] [--accept-unpinned]
+  bridge use <id>                   switch the active yabridge build, then sync
+  config init|show|check [file]     write, print or validate vstbridge.conf
+
+Daily use
+  launch <bitwig|reaper|renoise> [-- args...]
+                                    start a native DAW with the Wine dispatcher
+  desktop install|remove [daw...]   user menu entries that run 'vstbridge launch'
+  install <prefix> <installer.exe> [args...]
+                                    run an installer, then wait, repair fonts and sync
+  run <prefix> <program> [args...]  the same for licence managers and other programs
+  ni setup|native-access|doctor     Native Instruments through the ni-wine helper
+  iso <prefix> <image> [--exe PATH] [-- args...]
+                                    mount an image read-only and run PATH from it
+  sync                              register plugin folders, update yabridge.toml, yabridgectl sync
+  winecfg <prefix> | tricks <prefix> <verbs...> | shell <prefix>
+  graphics reset <prefix...> [--plan]
+                                    replace DXVK or other D3D/DXGI DLLs with Wine's own
+
+Appearance and fonts
+  appearance status|apply|restore [prefix...]
+  fix-fonts [prefix...] [--plan]    copy missing fonts, repair font registry entries if needed
+  fonts import-segoe <prefix> <dir> [--ui-font]
+
+Diagnostics
+  doctor                            read-only checks; exit status 1 on any failure
+  manifest [--write]                reproducibility manifest without credentials
+  paths                             plugin paths per format and host
+  prefixes                          configured prefixes, profiles and notes
+
+Exit status of install, run, iso: the program's status; 130 when cancelled; 3 when
+the program succeeded but finalization (wait, fonts, sync) failed. Wine's output goes
+to ~/.local/state/vstbridge/logs; set VSTBRIDGE_VERBOSE=1 to see it in the terminal.
+EOF
+}
+
+main() {
+    local cmd=${1:-help}
+    shift || true
+    case $cmd in
+        help|-h|--help) usage; return 0 ;;
+        config) cmd_config "$@"; return ;;
+    esac
+    load_conf
+    case $cmd in
+        setup)          cmd_setup "$@" ;;
+        plan)           cmd_setup --plan ;;
+        migrate)        cmd_migrate "$@" ;;
+        bridge)         cmd_bridge "$@" ;;
+        launch)         cmd_launch "$@" ;;
+        desktop)        cmd_desktop "$@" ;;
+        install)        run_program install "$@" ;;
+        run)            run_program run "$@" ;;
+        ni)             cmd_ni "$@" ;;
+        ni-postinstall) cmd_ni_postinstall "$@" ;;
+        iso)            cmd_iso "$@" ;;
+        sync)           cmd_sync "$@" ;;
+        winecfg)        cmd_winecfg "$@" ;;
+        tricks)         cmd_tricks "$@" ;;
+        shell)          cmd_shell "$@" ;;
+        appearance)     cmd_appearance "$@" ;;
+        fix-fonts)      cmd_fix_fonts "$@" ;;
+        graphics)       cmd_graphics "$@" ;;
+        fonts)          cmd_fonts "$@" ;;
+        doctor)         cmd_doctor "$@" ;;
+        manifest)       cmd_manifest "$@" ;;
+        paths)          cmd_paths "$@" ;;
+        prefixes|vendors) cmd_prefixes "$@" ;;
+        *) die "unknown command '$cmd'; see 'vstbridge help'" ;;
+    esac
+    local rc=$?
+    flush_registry
+    return "$rc"
+}
+
+main "$@"
