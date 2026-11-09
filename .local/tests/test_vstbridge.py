@@ -21,7 +21,7 @@ from pathlib import Path
 import pytest
 
 SCRIPT = Path(__file__).resolve().parents[2] / ".config/razorjack/vstbridge/vstbridge"
-PIN = "5.1.1-59-gf1fc21e6"
+PIN = "5.1.1-72-g7529c2d6"
 ENV_KEYS = [
     "WINEPREFIX",
     "WINESERVER",

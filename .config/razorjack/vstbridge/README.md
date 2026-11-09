@@ -12,9 +12,9 @@ Research baseline: 2026-11-05. The evidence ledger at the end records what each 
 vstbridge setup --plan                  # review; nothing changes
 vstbridge config init                   # then edit ~/.config/vstbridge/vstbridge.conf
 vstbridge setup                         # missing packages, new prefixes, dispatcher
-# download the two CI artifacts of yabridge master f1fc21e6 (see "Bridge")
-vstbridge bridge install <yabridge archive> <yabridgectl archive> --origin 'upstream CI, master f1fc21e6'
-vstbridge bridge use 5.1.1-59-gf1fc21e6
+# download the two CI artifacts of yabridge master 7529c2d6 (see "Bridge")
+vstbridge bridge install <yabridge archive> <yabridgectl archive> --origin 'upstream CI, master 7529c2d6'
+vstbridge bridge use 5.1.1-72-g7529c2d6
 vstbridge desktop install               # optional menu entries "Bitwig Studio (vstbridge)" etc.
 vstbridge doctor
 ```
@@ -87,7 +87,7 @@ Bitwig Studio comes from `~/.config/razorjack/install_bitwig`, which repackages 
 | | `theme` | default theme policy: `auto`, `dark`, `light`, `keep` |
 | | `vst2` (list) | VST2 directories relative to `drive_c`, registered only when they exist |
 | `[bridge]` | `source` | `local` (built by `bridge install`) or `system` (a packaged yabridge in `/usr`) |
-| | `pin` | expected build id, e.g. `5.1.1-59-gf1fc21e6` |
+| | `pin` | expected build id, e.g. `5.1.1-72-g7529c2d6` |
 | `[profile NAME]` | `runner` | absolute path of the `wine` binary |
 | | `wineserver` | defaults to `wineserver` next to the runner |
 | | `graphics` | `wined3d`, `dxvk` or `giang17` |
@@ -142,7 +142,7 @@ Select a fallback only for a documented or reproduced problem, and put the link 
 
 ## Bridge
 
-Fedora 45 has no `yabridge` package. Official release 5.1.1 (2024-11-04) does not work with Wine 9.22 or later. The pin is upstream master `f1fc21e668e18a324915010912700727c8626619` (2026-11-01). Its CI artifacts are named `yabridge-5.1.1-59-gf1fc21e6` and `yabridgectl-5.1.1-59-gf1fc21e6`. GitHub artifacts expire, so keep the archives. `bridge install` reads the build id from `libyabridge-vst3.so`. It refuses an unpinned build unless you pass `--accept-unpinned` with `--origin`, and it never overwrites an installed build. The community `5.1.2-alpha2` (Schroedingers-Cat fork) is not an upstream release. Use it only as an unpinned, recorded choice. `[bridge] source = system` uses a packaged build (for example from a COPR) instead.
+Fedora 45 has no `yabridge` package. Official release 5.1.1 (2024-11-04) does not work with Wine 9.22 or later. The pin is upstream master `7529c2d67330f7507649e903ce90782b58153a95` (2026-11-08), which includes the fix for a VST3 `beginEdit`/`getState` deadlock in Bitwig (yabridge #505). Its CI artifacts are named `yabridge-5.1.1-72-g7529c2d6` and `yabridgectl-5.1.1-72-g7529c2d6`. GitHub artifacts expire, so keep the archives. `bridge install` reads the build id from `libyabridge-vst3.so`. It refuses an unpinned build unless you pass `--accept-unpinned` with `--origin`, and it never overwrites an installed build. The community `5.1.2-alpha2` (Schroedingers-Cat fork) is not an upstream release. Use it only as an unpinned, recorded choice. `[bridge] source = system` uses a packaged build (for example from a COPR) instead.
 
 `doctor` fails when more than one installation is visible (local, `/usr`, `/usr/local`, or `yabridge-host.exe` elsewhere on `PATH`), because the chainloader prefers `PATH`. It also counts generated wrappers whose chainloader differs from the active build.
 

@@ -7,8 +7,8 @@ yabridgectl configuration and ~/.wine stay untouched. A run takes a few minutes.
 Opt in with VSTBRIDGE_REAL=1. The inputs live in ~/.cache/vstbridge-tests (or
 VSTBRIDGE_REAL_INPUTS) and are checked against the hashes below:
 
-  yabridge{,ctl}-5.1.1-59-gf1fc21e6.tar.gz.zip
-      https://nightly.link/robbert-vdh/yabridge/actions/runs/41351703537/<name>
+  yabridge{,ctl}-5.1.1-72-g7529c2d6.tar.gz.zip
+      https://nightly.link/robbert-vdh/yabridge/actions/runs/42525811143/<name>
   AirwindowsConsolidated-2026-10-31-d013e10-Windows{-64bit-setup.exe,.zip}
       https://github.com/baconpaul/airwin2rack/releases/tag/DAWPlugin
 
@@ -33,15 +33,15 @@ import pytest
 TESTS = Path(__file__).resolve().parent
 SCRIPT = TESTS.parents[1] / ".config/razorjack/vstbridge/vstbridge"
 HOST = TESTS / "vstbridge_host.py"
-PIN = "5.1.1-59-gf1fc21e6"
+PIN = "5.1.1-72-g7529c2d6"
 INPUTS = Path(os.environ.get("VSTBRIDGE_REAL_INPUTS", Path.home() / ".cache/vstbridge-tests"))
 AIR = "AirwindowsConsolidated-2026-10-31-d013e10-Windows"
 FILES = {
     f"yabridge-{PIN}.tar.gz.zip": (
-        "5b8111f10a0e9ad65dc80bc28848bac4a7469c87bbe5f8af7e43b02707767a46"
+        "ba8ba393ffc9c914c5ebd5ce10799d2263f91694b19dca22dc54563af839dfb9"
     ),
     f"yabridgectl-{PIN}.tar.gz.zip": (
-        "c9018906e94eb39f092ad224f285d02ad00c644809e3b177df0ab92ad379caf0"
+        "e268a966dc414bda165473c8232bd9b08a237e8bad7dcd187668dcfaea84f3f1"
     ),
     f"{AIR}-64bit-setup.exe": "a3ddb348b6ad9c9e1ec69c4f43ddaaab72a856e3aa068f1eb8bea2e639bc2aa5",
     f"{AIR}.zip": "a21a0df8b0e47a96b4932fed3c05490c3f208fad84eb2fc73f4ca570dd34f292",

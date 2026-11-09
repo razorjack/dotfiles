@@ -26,7 +26,7 @@ BRIDGE_FILES=(yabridgectl yabridge-host.exe yabridge-host.exe.so
     libyabridge-chainloader-vst2.so libyabridge-chainloader-vst3.so libyabridge-chainloader-clap.so
     libyabridge-vst2.so libyabridge-vst3.so libyabridge-clap.so)
 YABRIDGE_OPTIONS=(group disable_pipes editor_disable_host_scaling editor_force_dnd frame_rate hide_daw vst3_prefer_32bit)
-PIN_NOTE='5.1.1-59-gf1fc21e6'
+PIN_NOTE='5.1.1-72-g7529c2d6'
 V1_TOML_SHA256=49621d5dc896adc35a8eb6e5077f37803bd27e103a00509a658242104df7bd01
 MARK_BEGIN='# >>> vstbridge managed: generated from [yabridge] rules in vstbridge.conf >>>'
 MARK_END='# <<< vstbridge managed <<<'
@@ -79,8 +79,8 @@ vst2 = Program Files/Common Files/VST2
 # local: a yabridge build unpacked by `vstbridge bridge install`, linked to
 # ~/.local/share/yabridge. system: a packaged yabridge in /usr.
 source = local
-# Upstream master f1fc21e668e18a324915010912700727c8626619 (2026-11-01).
-pin = 5.1.1-59-gf1fc21e6
+# Upstream master 7529c2d67330f7507649e903ce90782b58153a95 (2026-11-08).
+pin = 5.1.1-72-g7529c2d6
 
 [profile baseline]
 runner = /usr/bin/wine
