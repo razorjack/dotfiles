@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Builds yabridge with the patch in this folder, inside upstream's CI container.
+# Usage: build-yabridge [work directory]. The archive lands in <work>/out.
+set -euo pipefail
+
+commit=7529c2d67330f7507649e903ce90782b58153a95
+image=docker.io/robbert/docker-yabridge@sha256:d0c61686cea44fb1c00b9d02e5ef7698aacfff1e8f4babee6cad1a8f59d3f4c0
+here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+work=${1:-${XDG_CACHE_HOME:-$HOME/.cache}/vstbridge-yabridge-fix}
+
+[[ -d $work/src/.git ]] || git clone https://github.com/robbert-vdh/yabridge.git "$work/src"
+git -C "$work/src" fetch --tags origin
+git -C "$work/src" checkout --force --detach "$commit"
+git -C "$work/src" clean -fdxq
+# Fixed identity and dates give the patched commit, and the version in the
+# binaries, the same hash on every machine.
+git -C "$work/src" -c user.name=vstbridge -c user.email=vstbridge@invalid \
+    am --quiet --committer-date-is-author-date "$here/yabridge-gui-call-recursion.patch"
+
+mkdir -p "$work/out"
+podman run --rm --userns=keep-id -e HOME=/tmp -e WINEPREFIX=/tmp/prefix \
+    -v "$work/src:/src:Z" -v "$work/out:/out:Z" -v "$here/recursion_test.cpp:/recursion_test.cpp:ro,Z" \
+    -w /src "$image" bash -euo pipefail -c '
+    git config --global --add safe.directory /src
+    mkdir -p "$WINEPREFIX"
+    version=$(git describe --always)
+
+    meson setup build --buildtype=release --cross-file=cross-wine.conf \
+        --unity=on --unity-size=10000 -Dbitbridge=true
+    ninja -C build
+
+    asio=$(dirname "$(find subprojects/asio -name asio.hpp -print -quit)")
+    for mode in "" "-fsanitize=thread"; do
+        g++ -std=c++20 -O1 -g -pthread $mode -Isrc -I"$asio" /recursion_test.cpp -o /tmp/recursion_test
+        /tmp/recursion_test
+    done
+    /tmp/recursion_test --old
+
+    strip build/libyabridge{,-chainloader}-{clap,vst2,vst3}.so build/yabridge-host{,-32}.exe.so
+    mkdir yabridge
+    cp build/libyabridge{,-chainloader}-{clap,vst2,vst3}.so build/yabridge-host{,-32}.exe{,.so} yabridge
+    cp CHANGELOG.md README.md yabridge
+    tar -caf "/out/yabridge-$version.tar.gz" yabridge
+    rm -rf yabridge
+    echo "built /out/yabridge-$version.tar.gz"
+'
+ls -1t "$work"/out/yabridge-*.tar.gz | head -n1

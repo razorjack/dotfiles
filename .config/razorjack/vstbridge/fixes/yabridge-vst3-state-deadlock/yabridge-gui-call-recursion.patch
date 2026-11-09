@@ -1,0 +1,161 @@
+From 18fcc9f7e43a88fb61ee1b714cc79c476d3d62c2 Mon Sep 17 00:00:00 2001
+From: vstbridge <vstbridge@invalid>
+Date: Mon, 9 Nov 2026 00:00:00 +0000
+Subject: [PATCH] vst3: Move waiting GUI thread calls to a new mutual recursion
+ context
+
+A request such as IComponent::getState() that arrives while the GUI thread is
+busy finds no mutual recursion context, so do_mutual_recursion_on_gui_thread()
+queues it on the main IO context. If the plugin then calls beginEdit() on the
+GUI thread, the GUI thread runs the temporary IO context in fork() and does not
+return to the main IO context. The host holds up its answer to beginEdit()
+until the request finishes, so all of them wait forever.
+
+Hand such calls to every fork() that starts before they have run, and let the
+first queue that reaches a call run it.
+---
+ src/common/mutual-recursion.h | 69 +++++++++++++++++++++++++++++++++++
+ src/wine-host/bridges/vst3.h  | 16 +++-----
+ 2 files changed, 75 insertions(+), 10 deletions(-)
+
+diff --git a/src/common/mutual-recursion.h b/src/common/mutual-recursion.h
+index 0278b084..43528b52 100644
+--- a/src/common/mutual-recursion.h
++++ b/src/common/mutual-recursion.h
+@@ -16,15 +16,22 @@
+ 
+ #pragma once
+ 
++#include <algorithm>
++#include <atomic>
++#include <functional>
+ #include <future>
++#include <memory>
++#include <mutex>
+ #include <optional>
+ #include <type_traits>
++#include <vector>
+ 
+ #ifdef __WINE__
+ #include "../wine-host/use-linux-asio.h"
+ #endif
+ #include <asio/dispatch.hpp>
+ #include <asio/io_context.hpp>
++#include <asio/post.hpp>
+ 
+ /**
+  * A helper to allow mutually recursive calling sequences with remote function
+@@ -88,6 +95,13 @@ class MutualRecursionHelper {
+         {
+             std::unique_lock lock(mutual_recursion_contexts_mutex_);
+             mutual_recursion_contexts_.push_back(current_io_context);
++
++            // The calls in this list are queued somewhere this thread won't
++            // look until `fn` returns, and the other side may not answer `fn`
++            // until those calls have finished
++            for (const auto& call : waiting_calls_) {
++                asio::post(*current_io_context, *call);
++            }
+         }
+ 
+         // Instead of directly stopping the IO context, we'll reset this work
+@@ -174,6 +188,56 @@ class MutualRecursionHelper {
+         return do_call_response.get();
+     }
+ 
++    /**
++     * Call `fn` on the thread that's calling `fork()`, or pass it to `schedule`
++     * if no thread is doing that right now. Unlike with `maybe_handle()`, a
++     * call that was passed to `schedule` is also moved to any `fork()` that
++     * starts before the call has run, so `fn` can't get stuck behind a thread
++     * that is busy and enters `fork()` before returning to its event loop. The
++     * call may be queued in several places, and the first one to reach it runs
++     * `fn`.
++     *
++     * @param fn The function to call.
++     * @param schedule A function that takes an `std::function<void()>` and
++     *   queues it to run on the thread that's supposed to call `fn`. It should
++     *   not wait for the function to finish.
++     *
++     * @return The result of `fn`.
++     */
++    template <std::invocable F, typename S>
++    std::invoke_result_t<F> handle_or_schedule(F&& fn, S&& schedule) {
++        using Result = std::invoke_result_t<F>;
++
++        auto do_call =
++            std::make_shared<std::packaged_task<Result()>>(std::forward<F>(fn));
++        std::future<Result> do_call_response = do_call->get_future();
++        auto call = std::make_shared<std::function<void()>>(
++            [do_call, started = std::make_shared<std::atomic_bool>(false)]() {
++                if (!started->exchange(true)) {
++                    (*do_call)();
++                }
++            });
++
++        std::unique_lock lock(mutual_recursion_contexts_mutex_);
++        waiting_calls_.push_back(call);
++        if (mutual_recursion_contexts_.empty()) {
++            lock.unlock();
++            schedule(*call);
++        } else {
++            asio::dispatch(*mutual_recursion_contexts_.back(), *call);
++            lock.unlock();
++        }
++
++        do_call_response.wait();
++
++        lock.lock();
++        waiting_calls_.erase(
++            std::find(waiting_calls_.begin(), waiting_calls_.end(), call));
++        lock.unlock();
++
++        return do_call_response.get();
++    }
++
+    private:
+     /**
+      * These IO contexts will let us call functions from the thread that's
+@@ -186,5 +250,10 @@ class MutualRecursionHelper {
+      * recursion going on.
+      */
+     std::vector<std::shared_ptr<asio::io_context>> mutual_recursion_contexts_;
++    /**
++     * Calls from `handle_or_schedule()` that have not finished yet. A new
++     * `fork()` adds these to its own IO context.
++     */
++    std::vector<std::shared_ptr<std::function<void()>>> waiting_calls_;
+     std::mutex mutual_recursion_contexts_mutex_;
+ };
+diff --git a/src/wine-host/bridges/vst3.h b/src/wine-host/bridges/vst3.h
+index fed0fc22..de4c36b5 100644
+--- a/src/wine-host/bridges/vst3.h
++++ b/src/wine-host/bridges/vst3.h
+@@ -407,21 +407,17 @@ class Vst3Bridge : public HostBridge {
+      * functions on the GUI thread. If another thread is currently calling that
+      * function (from the UI thread), then we'll execute `fn` from the UI thread
+      * using the IO context started in the above function. Otherwise `f` will be
+-     * run on the UI thread through `main_context_` as usual.
++     * run on the UI thread through `main_context_` as usual, unless the UI
++     * thread enters that function before it gets to `f`.
+      *
+      * @see Vst3Bridge::send_mutually_recursive_message
+      */
+     template <std::invocable F>
+     std::invoke_result_t<F> do_mutual_recursion_on_gui_thread(F&& fn) {
+-        // If the above function is currently being called from some thread,
+-        // then we'll call `fn` from that same thread. Otherwise we'll just
+-        // submit it to the main IO context.
+-        if (const auto result =
+-                mutual_recursion_.maybe_handle(std::forward<F>(fn))) {
+-            return *result;
+-        } else {
+-            return main_context_.run_in_context(std::forward<F>(fn)).get();
+-        }
++        return mutual_recursion_.handle_or_schedule(
++            std::forward<F>(fn), [this](std::function<void()> call) {
++                main_context_.run_in_context(std::move(call));
++            });
+     }
+ 
+     /**
